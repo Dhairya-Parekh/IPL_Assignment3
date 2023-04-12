@@ -1,45 +1,54 @@
-
-/*If FlexLexer.h has not been included before */
-
 #if !defined(yyFlexLexerOnce)
  #include <FlexLexer.h>
 #endif
-// parser.tab.hh defines 
-// struct token
-//     {
-//       enum yytokentype
-//       {
-//         MNEMONIC = 258,
-//         SYMBOL = 259,
-//         ...
 
 struct token
 {
    enum yytokentype
    {
-      STRUCT = 258,
-      IF = 259,
-      ELSE = 260,
-      RETURN = 261,
-      FOR = 262,
-      WHILE = 263,
-      VOID = 264,
-      INT = 265,
-      FLOAT = 266,
-      OR_OP = 267,
-      AND_OP = 268,
-      EQ_OP = 269,
-      NE_OP = 270,
-      LE_OP = 271,
-      GE_OP = 272,
-      INC_OP = 273,
-      PTR_OP = 274,
-      INT_CONSTANT = 275,
-      FLOAT_CONSTANT = 276,
-      STRING_LITERAL = 277,
-      IDENTIFIER = 278,
-      EOFILE = 279,
-      OTHERS = 280,
+      CONSTANT_STRING = 258,
+      CONSTANT_INT = 259,
+      VOID = 261,
+      INT = 262,
+      STRUCT = 263,
+      FOR = 264,
+      WHILE = 265,
+      IF = 266,
+      ELSE = 267,
+      RETURN = 268,
+      MAIN = 269,
+      PRINTF = 270,
+      IDENTIFIER = 271,
+      OP_GTE = 272,
+      OP_LTE = 273,
+      OP_EQ = 274,
+      OP_NEQ = 275,
+      OP_AND = 276,
+      OP_OR = 277,
+      OP_INC = 278,
+      OP_PTR = 279,
+      OP_NOT = 280,
+      OP_ADDR = 281,
+      OP_GT = 282,
+      OP_LT = 283,
+      OP_ADD = 284,
+      OP_SUB = 285,
+      OP_MUL = 286,
+      OP_DIV = 287,
+      OP_ASSIGN = 288,
+      OP_MEM = 289,
+      COMMA = 290,
+      EOS = 291,
+      LRB = 292,
+      RRB = 293,
+      LCB = 294,
+      RCB = 295,
+      LSB = 296,
+      RSB = 297,
+      OTHERS = 298,
+      FLOAT = 299,
+      CONSTANT_FLOAT = 300,
+      EOFILE = 301,
    };
 };
 

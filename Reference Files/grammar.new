@@ -1,0 +1,145 @@
+program
+: main_definition
+| translation_unit main_definition
+
+translation_unit
+: struct_specifier 
+| function_definition
+| translation_unit struct_specifier
+| translation_unit function_definition
+
+struct_specifier
+: STRUCT IDENTIFIER LCB declaration_list RCB EOS
+
+function_definition
+: type_specifier IDENTIFIER LRB RRB compound_statement
+| type_specifier IDENTIFIER LRB parameter_list RRB compound_statement
+
+main_definition
+: INT MAIN LRB RRB compound_statement
+
+type_specifier
+: VOID
+| INT
+| STRUCT IDENTIFIER
+
+parameter_list
+: parameter_declaration
+| parameter_list COMMA parameter_declaration
+
+parameter_declaration
+: type_specifier declarator
+
+declaration_list
+: declaration
+| declaration_list declaration
+
+declaration
+: type_specifier declarator_list EOS
+
+declarator_list
+: declarator
+| declarator_list COMMA declarator
+
+declarator
+: declarator_arr
+| OP_MUL declarator
+
+declarator_arr
+: IDENTIFIER
+| declarator_arr LSB CONSTANT_INT RSB
+
+compound_statement
+: LCB RCB
+| LCB statement_list RCB
+| LCB declaration_list statement_list RCB
+
+statement_list
+: statement
+| statement_list statement
+
+statement
+: EOS
+| LCB statement_list RCB
+| assignment_expression EOS
+| selection_statement
+| iteration_statement
+| procedure_call
+| printf call
+| RETURN expression EOS
+
+assignment_expression
+: unary_expression OP_ASSIGN expression
+
+expression
+: logical_and_expression
+| expression OP_OR logical_and_expression
+
+logical_and_expression
+: equality_expression
+| logical_and_expression OP_AND equality_expression
+
+equality_expression
+: relational_expression
+| equality_expression OP_EQ relational_expression
+| equality_expression OP_NEQ relational_expression
+
+relational_expression
+: additive_expression
+| relational_expression OP_LT additive_expression
+| relational_expression OP_GT additive_expression
+| relational_expression OP_LTE additive_expression
+| relational_expression OP_GTE additive_expression
+
+additive_expression
+: multiplicative_expression
+| additive_expression OP_ADD multiplicative_expression
+| additive_expression OP_SUB multiplicative_expression
+
+multiplicative_expression
+: unary_expression
+| multiplicative_expression OP_MUL unary_expression
+| multiplicative_expression OP_DIV unary_expression
+
+unary_expression
+: postfix_expression
+| unary_operator unary_expression
+
+postfix_expression
+: primary_expression
+| postfix_expression OP_INC
+| IDENTIFIER LRB RRB
+| IDENTIFIER LRB expression_list RRB
+| postfix_expression OP_MEM IDENTIFIER
+| postfix_expression OP_PTR IDENTIFIER
+| postfix_expression LSB expression RSB
+
+primary_expression
+: IDENTIFIER
+| CONSTANT_INT
+| LRB expression RRB
+
+unary_operator
+: OP_SUB
+| OP_NOT
+| OP_ADDR
+| OP_MUL
+
+selection_statement
+: IF LRB expression RRB statement ELSE statement
+
+iteration_statement
+: WHILE LRB expression RRB statement
+| FOR LRB assignment_expression EOS expression EOS assignment_expression RRB statement
+
+procedure_call
+: IDENTIFIER LRB RRB EOS
+| IDENTIFIER LRB expression_list RRB EOS
+
+printf_call
+: PRINTF LRB CONSTANT_STRING RRB EOS
+| PRINTF LRB CONSTANT_STRING COMMA expression_list RRB EOS
+
+expression_list
+: expression
+| expression_list COMMA expression
