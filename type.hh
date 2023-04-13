@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <iostream>
+#include <vector>
 namespace IPL
 {
     enum class Scope
@@ -55,5 +56,7 @@ namespace IPL
     std::ostream &operator<<(std::ostream &strm, Scope scope);
     std::ostream &operator<<(std::ostream &strm, BaseType base_type);
     std::ostream &operator<<(std::ostream &strm, Type* type);
+
+    Type* generate_type(Type* base_type, int stars, std::vector<int> arrays);
 }
 #endif

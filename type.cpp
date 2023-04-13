@@ -90,4 +90,18 @@ namespace IPL
         }
         return strm;
     }
+
+    Type* generate_type(Type* base_type, int stars, std::vector<int> arrays){
+        Type* type = base_type;
+        for(int i = 0; i < stars; i++){
+            type = new Type(BaseType::Pointer, "", type);
+            type->set_size(4);
+        }
+        for(unsigned int i = 0; i < arrays.size(); i++){
+            int size = type->get_size()*arrays[i];
+            type = new Type(BaseType::Array, "", type, arrays[i]);
+            type->set_size(size);
+        }
+        return type;
+    }
 }

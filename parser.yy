@@ -72,6 +72,7 @@
    GST* gst = new GST();
    LST* current_lst = NULL;
    int current_offset = 0;
+   Category current_category = Category::Const;
 }
 
 %define api.value.type variant
@@ -130,11 +131,11 @@
 %nterm <Type*> type_specifier
 %nterm <int> declaration_list
 %nterm <int> declaration
-%nterm <int> declarator_list
-%nterm <int> declarator
-%nterm <int> declarator_arr
-%nterm <int> parameter_list
-%nterm <int> parameter_declaration
+%nterm <DeclaratorList*> declarator_list
+%nterm <Declarator*> declarator
+%nterm <Declarator*> declarator_arr
+%nterm <ParameterList*> parameter_list
+%nterm <Parameter*> parameter_declaration
 %nterm <int> compound_statement
 %nterm <int> statement_list
 %nterm <int> statement
@@ -191,11 +192,13 @@ struct_specifier
    }
    current_lst = lst;
    current_offset = 0;
+   current_category = Category::Struct;
 } LCB declaration_list RCB EOS {
    GST_Entry* gst_entry = gst->getEntry($1+" "+$2);
    gst_entry->setSize(gst_entry->getLST()->getTotalSize());
    current_lst = NULL;
    current_offset = 0;
+   current_category = Category::Const;
 }
 
 function_definition
@@ -216,9 +219,11 @@ function_definition
    }
    current_lst = lst;
    current_offset = 0;
+   current_category = Category::Function;
 } compound_statement {
    current_lst = NULL;
    current_offset = 0;
+   current_category = Category::Const;
 }
 | type_specifier IDENTIFIER LRB {
    LST* lst = new LST();
@@ -237,11 +242,33 @@ function_definition
    }
    current_lst = lst;
    current_offset = 12;
-} parameter_list RRB {
+} parameter_list {
+   std::stack <Parameter*> parameter_stack = $5->getParameters();
+   while(!parameter_stack.empty()) {
+      Parameter* parameter = parameter_stack.top();
+      parameter_stack.pop();
+      Type* type = parameter->getType();
+      LST_Entry* lst_entry = new LST_Entry(
+         parameter->getName(),
+         Category::Variable,
+         Scope::Param,
+         type,
+         type->get_size(),
+         current_offset
+      );
+      bool success = current_lst->addEntry(lst_entry);
+      if(!success) {
+         error(@1, "The variable \"" + parameter->getName() + "\" has a previous declaration");
+      }
+      current_offset += type->get_size();
+   }
+} RRB {
    current_offset = 0;
+   current_category = Category::Function;
 } compound_statement {
    current_lst = NULL;
    current_offset = 0;
+   current_category = Category::Const;
 }
 
 main_definition
@@ -262,9 +289,11 @@ main_definition
    }
    current_lst = lst;
    current_offset = 0;
+   current_category = Category::Function;
 } compound_statement {
    current_lst = NULL;
    current_offset = 0;
+   current_category = Category::Const;
 }
 
 type_specifier
@@ -281,33 +310,84 @@ type_specifier
       error(@1, "The struct \"" + $2 + "\" has no previous declaration");
    }
    $$ = new Type(BaseType::Struct, $1+" "+$2);
+   $$->set_size(gst_entry->getSize());
 }
 
 parameter_list
-: parameter_declaration
-| parameter_list COMMA parameter_declaration
+: parameter_declaration {
+   $$ = new ParameterList();
+   $$->addParameter($1);
+}
+| parameter_list COMMA parameter_declaration {
+   $$ = $1;
+   $$->addParameter($3);
+}
 
 parameter_declaration
-: type_specifier declarator
+: type_specifier declarator {
+   Type* type = generate_type($1, $2->getStars(), $2->getArrays());
+   $$ = new Parameter(type, $2->getName());
+}
 
 declaration_list
 : declaration
 | declaration_list declaration
 
 declaration
-: type_specifier declarator_list EOS
+: type_specifier declarator_list EOS {
+   std::vector<Declarator*> declarators = $2->getDeclarators();
+   for(unsigned int i=0; i<declarators.size(); i++) {
+      Declarator* declarator = declarators[i];
+      std::string name = declarator->getName();
+      Type* type = generate_type($1, declarator->getStars(), declarator->getArrays());
+      if(current_category == Category::Function) {
+         current_offset -= type->get_size();
+      }
+      LST_Entry* lst_entry = new LST_Entry(
+         name,
+         Category::Variable,
+         Scope::Local,
+         type,
+         type->get_size(),
+         current_offset
+      );
+      if(current_category == Category::Struct) {
+         current_offset += type->get_size();
+      }
+      bool success = current_lst->addEntry(lst_entry);
+      if(!success) {
+         error(@1, "The variable \"" + name + "\" has a previous declaration");
+      }
+   }
+}
 
 declarator_list
-: declarator
-| declarator_list COMMA declarator
+: declarator {
+   $$ = new DeclaratorList();
+   $$->addDeclarator($1);
+}
+| declarator_list COMMA declarator {
+   $$ = $1;
+   $$->addDeclarator($3);
+}
 
 declarator
-: declarator_arr
-| OP_MUL declarator
+: declarator_arr{
+   $$ = $1;
+}
+| OP_MUL declarator{
+   $$ = $2;
+   $$->setStars($$->getStars()+1);
+}
 
 declarator_arr
-: IDENTIFIER
-| declarator_arr LSB CONSTANT_INT RSB
+: IDENTIFIER {
+   $$ = new Declarator($1);
+}
+| declarator_arr LSB CONSTANT_INT RSB {
+   $$ = $1;
+   $$->addToArray(stoi($3));
+}
 
 compound_statement
 : LCB RCB
