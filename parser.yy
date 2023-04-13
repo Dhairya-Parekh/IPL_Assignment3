@@ -11,7 +11,6 @@
    namespace IPL {
       class Scanner;
    }
-   #include "ast.hh"
    #include "type.hh"
    #include "symbtab.hh"
    #include "location.hh"
@@ -69,6 +68,10 @@
 
    #undef yylex
    #define yylex IPL::Parser::scanner.yylex
+   using namespace IPL;
+   GST* gst = new GST();
+   LST* current_lst = NULL;
+   int current_offset = 0;
 }
 
 %define api.value.type variant
@@ -124,7 +127,7 @@
 %nterm <int> translation_unit
 %nterm <int> struct_specifier
 %nterm <int> function_definition
-%nterm <int> type_specifier
+%nterm <Type*> type_specifier
 %nterm <int> declaration_list
 %nterm <int> declaration
 %nterm <int> declarator_list
@@ -157,8 +160,12 @@
 %%
 
 program
-: main_definition
-| translation_unit main_definition
+: main_definition {
+   gst->print();
+}
+| translation_unit main_definition{
+   gst->print();
+}
 
 translation_unit
 : struct_specifier 
@@ -167,19 +174,114 @@ translation_unit
 | translation_unit function_definition
 
 struct_specifier
-: STRUCT IDENTIFIER LCB declaration_list RCB EOS
+: STRUCT IDENTIFIER {
+   LST* lst = new LST();
+   GST_Entry* gst_entry = new GST_Entry(
+      $1+" "+$2,
+      Category::Struct,
+      Scope::Global,
+      new Type(BaseType::Null),
+      0,
+      0,
+      lst
+   );
+   bool success = gst->addEntry(gst_entry);
+   if(!success) {
+      error(@1, "The struct \"" + $2 + "\" has a previous declaration");
+   }
+   current_lst = lst;
+   current_offset = 0;
+} LCB declaration_list RCB EOS {
+   GST_Entry* gst_entry = gst->getEntry($1+" "+$2);
+   gst_entry->setSize(gst_entry->getLST()->getTotalSize());
+   current_lst = NULL;
+   current_offset = 0;
+}
 
 function_definition
-: type_specifier IDENTIFIER LRB RRB compound_statement
-| type_specifier IDENTIFIER LRB parameter_list RRB compound_statement
+: type_specifier IDENTIFIER LRB RRB {
+   LST* lst = new LST();
+   GST_Entry* gst_entry = new GST_Entry(
+      $2,
+      Category::Function,
+      Scope::Global,
+      $1,
+      0,
+      0,
+      lst
+   );
+   bool success = gst->addEntry(gst_entry);
+   if(!success) {
+      error(@1, "The function \"" + $2 + "\" has a previous defination");
+   }
+   current_lst = lst;
+   current_offset = 0;
+} compound_statement {
+   current_lst = NULL;
+   current_offset = 0;
+}
+| type_specifier IDENTIFIER LRB {
+   LST* lst = new LST();
+   GST_Entry* gst_entry = new GST_Entry(
+      $2,
+      Category::Function,
+      Scope::Global,
+      $1,
+      0,
+      0,
+      lst
+   );
+   bool success = gst->addEntry(gst_entry);
+   if(!success) {
+      error(@1, "The function \"" + $2 + "\" has a previous defination");
+   }
+   current_lst = lst;
+   current_offset = 12;
+} parameter_list RRB {
+   current_offset = 0;
+} compound_statement {
+   current_lst = NULL;
+   current_offset = 0;
+}
 
 main_definition
-: INT MAIN LRB RRB compound_statement
+: INT MAIN LRB RRB {
+   LST* lst = new LST();
+   GST_Entry* gst_entry = new GST_Entry(
+      $2,
+      Category::Function,
+      Scope::Global,
+      new Type(BaseType::Int),
+      0,
+      0,
+      lst
+   );
+   bool success = gst->addEntry(gst_entry);
+   if(!success) {
+      error(@1, "Multiple defination of main function");
+   }
+   current_lst = lst;
+   current_offset = 0;
+} compound_statement {
+   current_lst = NULL;
+   current_offset = 0;
+}
 
 type_specifier
-: VOID
-| INT
-| STRUCT IDENTIFIER
+: VOID {
+   $$ = new Type(BaseType::Void);
+}
+| INT {
+   $$ = new Type(BaseType::Int);
+   $$->set_size(4);
+}
+| STRUCT IDENTIFIER {
+   GST_Entry* gst_entry = gst->getEntry($1+" "+$2);
+   if(gst_entry == NULL) {
+      error(@1, "The struct \"" + $2 + "\" has no previous declaration");
+   }
+   $$ = new Type(BaseType::Struct, $1+" "+$2);
+}
 
 parameter_list
 : parameter_declaration

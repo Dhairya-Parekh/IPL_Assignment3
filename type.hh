@@ -3,113 +3,57 @@
 
 #include <map>
 #include <string>
+#include <iostream>
 namespace IPL
 {
-    enum class typeExp
-    {
-        empty_astnode,
-        seq_astnode,
-        assignS_astnode,
-        if_astnode,
-        while_astnode,
-        for_astnode,
-        return_astnode,
-        proccall_astnode,
-        identifier_astnode,
-        arrayref_astnode,
-        member_astnode,
-        arrow_astnode,
-        op_binary_astnode,
-        op_unary_astnode,
-        assignE_astnode,
-        funcall_astnode,
-        int_astnode,
-        float_astnode,
-        string_astnode
-    };
-    enum class op_binary_type
-    {
-        OR_OP,
-        AND_OP,
-        EQ_OP_INT,
-        NE_OP_INT,
-        LT_OP_INT,
-        LE_OP_INT,
-        GT_OP_INT,
-        GE_OP_INT,
-        EQ_OP_FLOAT,
-        NE_OP_FLOAT,
-        LT_OP_FLOAT,
-        LE_OP_FLOAT,
-        GT_OP_FLOAT,
-        GE_OP_FLOAT,
-        PLUS_INT,
-        MINUS_INT,
-        MULT_INT,
-        DIV_INT,
-        PLUS_FLOAT,
-        MINUS_FLOAT,
-        MULT_FLOAT,
-        DIV_FLOAT
-    };
-    enum class op_unary_type
-    {
-        TO_INT,
-        TO_FLOAT,
-        UMINUS,
-        NOT,
-        ADDRESS,
-        DEREF,
-        PP
-    };
-    const std::map<op_binary_type, std::string> op_binary_map = {
-        {op_binary_type::OR_OP, "OR_OP"},
-        {op_binary_type::AND_OP, "AND_OP"},
-        {op_binary_type::EQ_OP_INT, "EQ_OP_INT"},
-        {op_binary_type::NE_OP_INT, "NE_OP_INT"},
-        {op_binary_type::LT_OP_INT, "LT_OP_INT"},
-        {op_binary_type::LE_OP_INT, "LE_OP_INT"},
-        {op_binary_type::GT_OP_INT, "GT_OP_INT"},
-        {op_binary_type::GE_OP_INT, "GE_OP_INT"},
-        {op_binary_type::EQ_OP_FLOAT, "EQ_OP_FLOAT"},
-        {op_binary_type::NE_OP_FLOAT, "NE_OP_FLOAT"},
-        {op_binary_type::LT_OP_FLOAT, "LT_OP_FLOAT"},
-        {op_binary_type::LE_OP_FLOAT, "LE_OP_FLOAT"},
-        {op_binary_type::GT_OP_FLOAT, "GT_OP_FLOAT"},
-        {op_binary_type::GE_OP_FLOAT, "GE_OP_FLOAT"},
-        {op_binary_type::PLUS_INT, "PLUS_INT"},
-        {op_binary_type::MINUS_INT, "MINUS_INT"},
-        {op_binary_type::MULT_INT, "MULT_INT"},
-        {op_binary_type::DIV_INT, "DIV_INT"},
-        {op_binary_type::PLUS_FLOAT, "PLUS_FLOAT"},
-        {op_binary_type::MINUS_FLOAT, "MINUS_FLOAT"},
-        {op_binary_type::MULT_FLOAT, "MULT_FLOAT"},
-        {op_binary_type::DIV_FLOAT, "DIV_FLOAT"}
-    };
-    const std::map<op_unary_type, std::string> op_unary_map = {
-        {op_unary_type::TO_INT, "TO_INT"},
-        {op_unary_type::TO_FLOAT, "TO_FLOAT"},
-        {op_unary_type::UMINUS, "UMINUS"},
-        {op_unary_type::NOT, "NOT"},
-        {op_unary_type::ADDRESS, "ADDRESS"},
-        {op_unary_type::DEREF, "DEREF"},
-        {op_unary_type::PP, "PP"}
-    };
-    enum class SymbolType
-    {
-        Var,
-        Const,
-        Func,
-        Struct
-    };
     enum class Scope
     {
-        Global,
-        Local,
-        Param
+        Global=0,
+        Local=1,
+        Param=2
     };
-
-    
-    
+    enum class Category
+    {
+        Variable,
+        Const,
+        Function,
+        Struct
+    };
+    enum class BaseType
+    {
+        Null,
+        Void,
+        Int,
+        Struct,
+        Array,
+        Pointer
+    };
+    class Type
+    {
+    private:
+        BaseType base_type;
+        std::string name;
+        Type *sub_type;
+        int size;
+    public:
+        Type(BaseType base_type, std::string name, Type *sub_type, int size) : base_type(base_type), name(name), sub_type(sub_type), size(size) {}
+        Type(BaseType base_type, std::string name, Type *sub_type) : base_type(base_type), name(name), sub_type(sub_type) {}
+        Type(BaseType base_type, std::string name) : base_type(base_type), name(name) {}
+        Type(BaseType base_type) : base_type(base_type) {}
+        Type() : base_type(BaseType::Null) {}
+        BaseType get_base_type() const { return base_type; }
+        std::string get_name() const { return name; }
+        Type *get_sub_type() const { return sub_type; }
+        int get_size() const { return size; }
+        void set_base_type(BaseType base_type) { this->base_type = base_type; }
+        void set_name(std::string name) { this->name = name; }
+        void set_sub_type(Type *sub_type) { this->sub_type = sub_type; }
+        void set_size(int size) { this->size = size; }
+        
+    };
+    std::ostream &operator<<(std::ostream &strm, Category category);
+    std::ostream &operator<<(std::ostream &strm, Scope scope);
+    std::ostream &operator<<(std::ostream &strm, BaseType base_type);
+    std::ostream &operator<<(std::ostream &strm, Type* type);
 }
 #endif
