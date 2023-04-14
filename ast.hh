@@ -9,11 +9,15 @@ namespace IPL
     class abstract_astnode
     {
     protected:
+        std::string labels;
         std::string code;
 
     public:
         virtual ~abstract_astnode() {}
-        virtual void print() = 0;
+        virtual void print_code() = 0;
+        void append_label(std::string label);
+        void print_labels();
+        std::string get_labels();
     };
 
     class statement_astnode : public abstract_astnode
@@ -44,7 +48,7 @@ namespace IPL
 
     public:
         identifier_astnode(std::string name);
-        void print();
+        void print_code();
     };
     class member_astnode : public reference_astnode
     {
@@ -54,7 +58,7 @@ namespace IPL
 
     public:
         member_astnode(expression_astnode *expression, identifier_astnode *name);
-        void print();
+        void print_code();
     };
     class array_astnode : public reference_astnode
     {
@@ -64,7 +68,7 @@ namespace IPL
 
     public:
         array_astnode(expression_astnode *expression, expression_astnode *index);
-        void print();
+        void print_code();
     };
     class arrow_astnode : public reference_astnode
     {
@@ -74,7 +78,7 @@ namespace IPL
 
     public:
         arrow_astnode(expression_astnode *expression, identifier_astnode *name);
-        void print();
+        void print_code();
     };
 
     class op_binary_astnode : public expression_astnode
@@ -86,7 +90,7 @@ namespace IPL
 
     public:
         op_binary_astnode(expression_astnode *left, expression_astnode *right, OP_Binary op);
-        void print();
+        void print_code();
     };
     class op_unary_astnode : public expression_astnode
     {
@@ -96,7 +100,7 @@ namespace IPL
 
     public:
         op_unary_astnode(expression_astnode *expression, OP_Unary op);
-        void print();
+        void print_code();
     };
     class int_astnode : public expression_astnode
     {
@@ -105,16 +109,17 @@ namespace IPL
 
     public:
         int_astnode(int value);
-        void print();
+        void print_code();
     };
     class string_astnode : public expression_astnode
     {
     private:
         std::string value;
+        std::string label;
 
     public:
-        string_astnode(std::string value);
-        void print();
+        string_astnode(std::string value, std::string label);
+        void print_code();
     };
     class assignE_astnode : public expression_astnode
     {
@@ -124,7 +129,7 @@ namespace IPL
 
     public:
         assignE_astnode(expression_astnode *left, expression_astnode *right);
-        void print();
+        void print_code();
     };
     class funcall_astnode : public expression_astnode
     {
@@ -135,14 +140,14 @@ namespace IPL
     public:
         funcall_astnode(identifier_astnode *name);
         void add_argument(expression_astnode *argument);
-        void print();
+        void print_code();
     };
 
     class empty_astnode : public statement_astnode
     {
     public:
         empty_astnode();
-        void print();
+        void print_code();
     };
     class seq_astnode : public statement_astnode
     {
@@ -152,7 +157,7 @@ namespace IPL
     public:
         seq_astnode();
         void add_statement(statement_astnode *statement);
-        void print();
+        void print_code();
     };
     class assignS_astnode : public statement_astnode
     {
@@ -161,7 +166,7 @@ namespace IPL
 
     public:
         assignS_astnode(expression_astnode *assignment_expression);
-        void print();
+        void print_code();
     };
     class if_astnode : public statement_astnode
     {
@@ -172,7 +177,7 @@ namespace IPL
 
     public:
         if_astnode(expression_astnode *condition, statement_astnode *if_body, statement_astnode *else_body);
-        void print();
+        void print_code();
     };
     class while_astnode : public iteration_astnode
     {
@@ -182,7 +187,7 @@ namespace IPL
 
     public:
         while_astnode(expression_astnode *condition, statement_astnode *body);
-        void print();
+        void print_code();
     };
     class for_astnode : public iteration_astnode
     {
@@ -194,7 +199,7 @@ namespace IPL
 
     public:
         for_astnode(assignE_astnode *init, expression_astnode *condition, assignE_astnode *step, statement_astnode *body);
-        void print();
+        void print_code();
     };
     class return_astnode : public statement_astnode
     {
@@ -203,7 +208,7 @@ namespace IPL
 
     public:
         return_astnode(expression_astnode *expression);
-        void print();
+        void print_code();
     };
     class proccall_astnode : public statement_astnode
     {
@@ -214,7 +219,7 @@ namespace IPL
     public:
         proccall_astnode(std::string name);
         void add_argument(expression_astnode *argument);
-        void print();
+        void print_code();
     };
     class printf_astnode : public statement_astnode
     {
@@ -225,9 +230,17 @@ namespace IPL
     public:
         printf_astnode(string_astnode *format);
         void add_argument(expression_astnode *argument);
-        void print();
+        void print_code();
     };
 
+    class compound_statement_astnode : public statement_astnode
+    {
+    private:
+        seq_astnode* statements;
+    public:
+        compound_statement_astnode(seq_astnode* statements);
+        void print_code();
+    };
     class expression_list
     {
     private:

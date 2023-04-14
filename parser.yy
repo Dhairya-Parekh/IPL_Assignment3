@@ -75,6 +75,10 @@
    int current_offset = 0;
    std::map<std::string, abstract_astnode*> func_ast_map;
    Category current_category = Category::Const;
+   int label_number = 0;
+   std::string get_new_label(){
+      return ".LC" + std::to_string(label_number++);
+   }
 }
 
 %define api.value.type variant
@@ -139,7 +143,7 @@
 %nterm <ParameterList*> parameter_list
 %nterm <Parameter*> parameter_declaration
 
-%nterm <abstract_astnode*> compound_statement
+%nterm <compound_statement_astnode*> compound_statement
 %nterm <seq_astnode*> statement_list
 %nterm <statement_astnode*> statement
 %nterm <if_astnode*> selection_statement
@@ -165,27 +169,26 @@
 
 program
 : main_definition {
-   gst->print();
-   // Print the AST
-   std::cout << "AST:" << std::endl;
-   // Loop through the map and print the AST
    for(auto it = func_ast_map.begin(); it != func_ast_map.end(); it++) {
-      std::cout << "Function: " << it->first << std::endl;
-      if(it->second)
-         it->second->print();
+      std::cout << "\t" << ".globl " << it->first << std::endl;
+      std::cout << "\t" << ".type " << it->first << ", @function" << std::endl;      
+      if(it->second){
+         it->second->print_labels();
+         std::cout << it->first << ":" << std::endl;
+         it->second->print_code();
+      }
    }
 }
 | translation_unit main_definition{
-   gst->print();
-   // Print the AST
-   std::cout << "AST:" << std::endl;
-   // Loop through the map and print the AST
    for(auto it = func_ast_map.begin(); it != func_ast_map.end(); it++) {
-      std::cout << "Function: " << it->first << std::endl;
-      if(it->second)
-         it->second->print();
+      std::cout << "\t" << ".globl " << it->first << std::endl;
+      std::cout << "\t" << ".type " << it->first << ", @function";      
+      if(it->second){
+         it->second->print_labels();
+         std::cout << it->first << ":" << std::endl;
+         it->second->print_code();
+      }
    }
-
 }
 
 translation_unit
@@ -419,9 +422,15 @@ declarator_arr
 }
 
 compound_statement
-: LCB RCB { $$ = nullptr; }
-| LCB statement_list RCB { $$ = $2;}
-| LCB declaration_list statement_list RCB { $$ = $3; }
+: LCB RCB { 
+   $$ = nullptr; 
+}
+| LCB statement_list RCB {
+   $$ = new compound_statement_astnode($2);
+}
+| LCB declaration_list statement_list RCB { 
+   $$ = new compound_statement_astnode($3); 
+}
 
 statement_list
 : statement {
@@ -597,11 +606,13 @@ procedure_call
 
 printf_call
 : PRINTF LRB CONSTANT_STRING RRB EOS { 
-   $$ = new printf_astnode(new string_astnode($3)); 
+   std::string new_label = get_new_label();
+   $$ = new printf_astnode(new string_astnode($3, new_label)); 
 }
 | PRINTF LRB CONSTANT_STRING COMMA expression_list RRB EOS { 
    // TODO: check if params and thier types are correct
-   $$ = new printf_astnode(new string_astnode($3));
+   std::string new_label = get_new_label();
+   $$ = new printf_astnode(new string_astnode($3, new_label));
    std::vector<expression_astnode*> expressions = $5->get_expressions();
    for (unsigned int i = 0; i < expressions.size(); i++) {
       $$->add_argument(expressions[i]);

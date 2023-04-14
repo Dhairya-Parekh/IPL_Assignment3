@@ -2,11 +2,23 @@
 #include <iostream>
 namespace IPL
 {
+    void abstract_astnode::append_label(std::string label)
+    {
+        labels += label;
+    }
+    void abstract_astnode::print_labels()
+    {
+        std::cout << labels;
+    }
+    std::string abstract_astnode::get_labels()
+    {
+        return labels;
+    }
     empty_astnode::empty_astnode()
     {
         code = "";
     }
-    void empty_astnode::print()
+    void empty_astnode::print_code()
     {
         std::cout << code << std::endl;
     }
@@ -17,21 +29,29 @@ namespace IPL
     void seq_astnode::add_statement(statement_astnode *statement)
     {
         statements.push_back(statement);
+        if(statements.size() > 0)
+        {
+            append_label("\n"+statement->get_labels());
+        }
+        else
+        {
+            append_label(statement->get_labels());
+        }
     }
-    void seq_astnode::print()
+    void seq_astnode::print_code()
     {
         for (auto statement : statements)
         {
-            statement->print();
+            statement->print_code();
         }
     }
     assignS_astnode::assignS_astnode(expression_astnode *assignment_expression)
     {
         this->assignment_expression = assignment_expression;
     }
-    void assignS_astnode::print()
+    void assignS_astnode::print_code()
     {
-        assignment_expression->print();
+        assignment_expression->print_code();
     }
     if_astnode::if_astnode(expression_astnode *condition, statement_astnode *if_body, statement_astnode *else_body)
     {
@@ -39,17 +59,17 @@ namespace IPL
         this->if_body = if_body;
         this->else_body = else_body;
     }
-    void if_astnode::print()
+    void if_astnode::print_code()
     {
         std::cout << "if (";
-        condition->print();
+        condition->print_code();
         std::cout << ") {" << std::endl;
-        if_body->print();
+        if_body->print_code();
         std::cout << "}" << std::endl;
         if (else_body != NULL)
         {
             std::cout << "else {" << std::endl;
-            else_body->print();
+            else_body->print_code();
             std::cout << "}" << std::endl;
         }
     }
@@ -58,12 +78,12 @@ namespace IPL
         this->condition = condition;
         this->body = body;
     }
-    void while_astnode::print()
+    void while_astnode::print_code()
     {
         std::cout << "while (";
-        condition->print();
+        condition->print_code();
         std::cout << ") {" << std::endl;
-        body->print();
+        body->print_code();
         std::cout << "}" << std::endl;
     }
     for_astnode::for_astnode(assignE_astnode *init, expression_astnode *condition, assignE_astnode *step, statement_astnode *body)
@@ -73,27 +93,27 @@ namespace IPL
         this->step = step;
         this->body = body;
     }
-    void for_astnode::print()
+    void for_astnode::print_code()
     {
         std::cout << "for (";
-        init->print();
+        init->print_code();
         std::cout << "; ";
-        condition->print();
+        condition->print_code();
         std::cout << "; ";
-        step->print();
+        step->print_code();
         std::cout << ") {" << std::endl;
-        body->print();
+        body->print_code();
         std::cout << "}" << std::endl;
     }
     return_astnode::return_astnode(expression_astnode *expression)
     {
         this->expression = expression;
     }
-    void return_astnode::print()
+    void return_astnode::print_code()
     {
-        std::cout << "return ";
-        expression->print();
-        std::cout << std::endl;
+        std::cout << "\t" << "movl \t";
+        expression->print_code();
+        std::cout << ", %eax" << std::endl;
     }
     proccall_astnode::proccall_astnode(std::string name)
     {
@@ -103,28 +123,31 @@ namespace IPL
     {
         arguments.push_back(argument);
     }
-    void proccall_astnode::print()
+    void proccall_astnode::print_code()
     {
         std::cout << name << std::endl;
     }
     printf_astnode::printf_astnode(string_astnode *format)
     {
         this->format = format;
+        append_label(format->get_labels());
     }
     void printf_astnode::add_argument(expression_astnode *argument)
     {
         arguments.push_back(argument);
     }
-    void printf_astnode::print()
+    void printf_astnode::print_code()
     {
-        std::cout << "printf(";
-        format->print();
         for (auto argument : arguments)
         {
-            std::cout << ", ";
-            argument->print();
+            std::cout << "\t" << "pushl" << "\t";
+            argument->print_code();
+            std::cout << std::endl;
         }
-        std::cout << ")" << std::endl;
+        std::cout << "\t" << "pushl" << "\t";
+        format->print_code();
+        std::cout << std::endl;
+        std::cout << "\t" << "call" << "\t" << "printf" << std::endl;
     }
 
     op_binary_astnode::op_binary_astnode(expression_astnode *left, expression_astnode *right, OP_Binary op)
@@ -133,48 +156,50 @@ namespace IPL
         this->left = left;
         this->right = right;
     }
-    void op_binary_astnode::print()
+    void op_binary_astnode::print_code()
     {
-        left->print();
+        left->print_code();
         std::cout<< " " << op << " ";
-        right->print();
+        right->print_code();
     }
     op_unary_astnode::op_unary_astnode(expression_astnode *expression, OP_Unary op)
     {
         this->op = op;
         this->expression = expression;
     }
-    void op_unary_astnode::print()
+    void op_unary_astnode::print_code()
     {
         std::cout << op;
-        expression->print();
+        expression->print_code();
     }
     int_astnode::int_astnode(int value)
     {
         this->value = value;
     }
-    void int_astnode::print()
+    void int_astnode::print_code()
     {
-        std::cout << value;
+        std::cout <<"$"<<value;
     }
-    string_astnode::string_astnode(std::string value)
+    string_astnode::string_astnode(std::string value, std::string label)
     {
         this->value = value;
+        this->label = label;
+        this->append_label(label+": \n\t.string "+value);
     }
-    void string_astnode::print()
+    void string_astnode::print_code()
     {
-        std::cout << value;
+        std::cout << "$" << label;
     }
     assignE_astnode::assignE_astnode(expression_astnode *left, expression_astnode *right)
     {
         this->left = left;
         this->right = right;
     }
-    void assignE_astnode::print()
+    void assignE_astnode::print_code()
     {
-        left->print();
+        left->print_code();
         std::cout << " = ";
-        right->print();
+        right->print_code();
         std::cout << std::endl;
     }
     funcall_astnode::funcall_astnode(identifier_astnode *name)
@@ -185,12 +210,12 @@ namespace IPL
     {
         arguments.push_back(argument);
     }
-    void funcall_astnode::print()
+    void funcall_astnode::print_code()
     {
         std::cout << name << "(";
         for (auto argument : arguments)
         {
-            argument->print();
+            argument->print_code();
             std::cout << ", ";
         }
         std::cout << ")" << std::endl;
@@ -199,7 +224,7 @@ namespace IPL
     {
         this->name = name;
     }
-    void identifier_astnode::print()
+    void identifier_astnode::print_code()
     {
         std::cout << name;
     }
@@ -209,22 +234,22 @@ namespace IPL
         this->expression = expression;
         this->name = name;
     }
-    void member_astnode::print()
+    void member_astnode::print_code()
     {
-        expression->print();
+        expression->print_code();
         std::cout << ".";
-        name->print();
+        name->print_code();
     }
     array_astnode::array_astnode(expression_astnode *expression, expression_astnode *index)
     {
         this->expression = expression;
         this->index = index;
     }
-    void array_astnode::print()
+    void array_astnode::print_code()
     {
-        expression->print();
+        expression->print_code();
         std::cout << "[";
-        index->print();
+        index->print_code();
         std::cout << "]";
     }
     arrow_astnode::arrow_astnode(expression_astnode *expression, identifier_astnode *name)
@@ -232,12 +257,27 @@ namespace IPL
         this->expression = expression;
         this->name = name;
     }
-    void arrow_astnode::print()
+    void arrow_astnode::print_code()
     {
-        expression->print();
+        expression->print_code();
         std::cout << "->";
-        name->print();
+        name->print_code();
     }
+    
+    compound_statement_astnode::compound_statement_astnode(seq_astnode *statements)
+    {
+        this->statements = statements;
+        append_label(statements->get_labels());
+    }
+    void compound_statement_astnode::print_code()
+    {
+        std::cout << "\t" << "pushl" << "\t" << "%ebp" << std::endl;
+        std::cout << "\t" << "movl" << "\t" << "%esp" << ", " << "%ebp" << std::endl;
+        statements->print_code();
+        std::cout << "\t" << "leave" << std::endl;
+        std::cout << "\t" << "ret" << std::endl;
+    }
+    
     expression_list::expression_list()
     {
     }
