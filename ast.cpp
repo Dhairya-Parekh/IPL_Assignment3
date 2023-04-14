@@ -29,13 +29,9 @@ namespace IPL
     void seq_astnode::add_statement(statement_astnode *statement)
     {
         statements.push_back(statement);
-        if(statements.size() > 0)
+        if(statement->get_labels() != "")
         {
-            append_label("\n"+statement->get_labels());
-        }
-        else
-        {
-            append_label(statement->get_labels());
+            append_label(statement->get_labels()+"\n");
         }
     }
     void seq_astnode::print_code()
@@ -138,15 +134,18 @@ namespace IPL
     }
     void printf_astnode::print_code()
     {
-        for (auto argument : arguments)
+        // Push arguments in reverse order
+        for (auto it = arguments.rbegin(); it != arguments.rend(); ++it)
         {
             std::cout << "\t" << "pushl" << "\t";
-            argument->print_code();
+            (*it)->print_code();
             std::cout << std::endl;
         }
+        // Push format string
         std::cout << "\t" << "pushl" << "\t";
         format->print_code();
         std::cout << std::endl;
+        // Call printf
         std::cout << "\t" << "call" << "\t" << "printf" << std::endl;
     }
 

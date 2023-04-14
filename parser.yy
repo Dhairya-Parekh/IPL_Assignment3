@@ -79,6 +79,18 @@
    std::string get_new_label(){
       return ".LC" + std::to_string(label_number++);
    }
+   void generate_code(){
+      for(auto it = func_ast_map.begin(); it != func_ast_map.end(); it++) {
+         std::cout << "\t" << ".globl " << it->first << std::endl;
+         std::cout << "\t" << ".type " << it->first << ", @function" << std::endl;
+         if(it->second){
+            it->second->print_labels();
+            std::cout << it->first << ":" << std::endl;
+            it->second->print_code();
+         }
+         std::cout << std::endl;
+      }
+   }
 }
 
 %define api.value.type variant
@@ -168,28 +180,8 @@
 %%
 
 program
-: main_definition {
-   for(auto it = func_ast_map.begin(); it != func_ast_map.end(); it++) {
-      std::cout << "\t" << ".globl " << it->first << std::endl;
-      std::cout << "\t" << ".type " << it->first << ", @function" << std::endl;      
-      if(it->second){
-         it->second->print_labels();
-         std::cout << it->first << ":" << std::endl;
-         it->second->print_code();
-      }
-   }
-}
-| translation_unit main_definition{
-   for(auto it = func_ast_map.begin(); it != func_ast_map.end(); it++) {
-      std::cout << "\t" << ".globl " << it->first << std::endl;
-      std::cout << "\t" << ".type " << it->first << ", @function";      
-      if(it->second){
-         it->second->print_labels();
-         std::cout << it->first << ":" << std::endl;
-         it->second->print_code();
-      }
-   }
-}
+: main_definition {generate_code();}
+| translation_unit main_definition{generate_code();}
 
 translation_unit
 : struct_specifier 
