@@ -418,10 +418,11 @@ compound_statement
    $$ = nullptr; 
 }
 | LCB statement_list RCB {
-   $$ = new compound_statement_astnode($2);
+   $$ = new compound_statement_astnode($2, 0);
 }
 | LCB declaration_list statement_list RCB { 
-   $$ = new compound_statement_astnode($3); 
+   int size = current_lst->getTotalSize();
+   $$ = new compound_statement_astnode($3, size); 
 }
 
 statement_list
@@ -444,7 +445,8 @@ statement
 | printf_call { $$ = $1; }
 | RETURN expression EOS { 
    // TODO: check if return type is correct 
-   $$ = new return_astnode($2); 
+   int size = current_lst->getTotalSize();
+   $$ = new return_astnode($2, size);
 }
 
 assignment_expression
@@ -532,11 +534,11 @@ postfix_expression
 }
 | IDENTIFIER LRB RRB {
    // TODO: check if params are correct
-   $$ = new funcall_astnode(new identifier_astnode($1));
+   $$ = new funcall_astnode(new identifier_astnode($1, 0));
 }
 | IDENTIFIER LRB expression_list RRB {
    // TODO: check if params and thier types are correct
-   funcall_astnode* output = new funcall_astnode(new identifier_astnode($1));
+   funcall_astnode* output = new funcall_astnode(new identifier_astnode($1, 0));
    std::vector<expression_astnode*> expressions = $3->get_expressions();
    for (unsigned int i = 0; i < expressions.size(); i++) {
       output->add_argument(expressions[i]);
@@ -545,11 +547,13 @@ postfix_expression
 }
 | postfix_expression OP_MEM IDENTIFIER {
    // TODO: check if types are correct
-   $$ = new member_astnode($1, new identifier_astnode($3));
+   // TODO: check if identifier is declared and offset is correct
+   $$ = new member_astnode($1, new identifier_astnode($3, 0));
 }
 | postfix_expression OP_PTR IDENTIFIER {
    // TODO: check if types are correct
-   $$ = new arrow_astnode($1, new identifier_astnode($3));
+   // TODO: check if identifier is declared and offset is correct
+   $$ = new arrow_astnode($1, new identifier_astnode($3, 0));
 }
 | postfix_expression LSB expression RSB {
    // TODO: check if types are correct
@@ -559,7 +563,9 @@ postfix_expression
 primary_expression
 : IDENTIFIER {
    // TODO: check if identifier is declared
-   $$ = new identifier_astnode($1);
+   LST_Entry* entry = current_lst->getEntry($1);
+   int offset = entry->getOffset();
+   $$ = new identifier_astnode($1, offset);
 }
 | CONSTANT_INT {
    $$ = new int_astnode(stoi($1));

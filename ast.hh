@@ -45,9 +45,10 @@ namespace IPL
     {
     private:
         std::string name;
+        int offset;
 
     public:
-        identifier_astnode(std::string name);
+        identifier_astnode(std::string name, int offset);
         void print_code();
     };
     class member_astnode : public reference_astnode
@@ -205,9 +206,9 @@ namespace IPL
     {
     private:
         expression_astnode *expression;
-
+        int local_var_size;
     public:
-        return_astnode(expression_astnode *expression);
+        return_astnode(expression_astnode *expression, int local_var_size);
         void print_code();
     };
     class proccall_astnode : public statement_astnode
@@ -232,15 +233,16 @@ namespace IPL
         void add_argument(expression_astnode *argument);
         void print_code();
     };
-
     class compound_statement_astnode : public statement_astnode
     {
     private:
         seq_astnode* statements;
+        int local_var_size;
     public:
-        compound_statement_astnode(seq_astnode* statements);
+        compound_statement_astnode(seq_astnode* statements, int local_var_size);
         void print_code();
     };
+    
     class expression_list
     {
     private:

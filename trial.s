@@ -7,7 +7,6 @@ main:
     movl    %esp, %ebp
     pushl   $.LC0
     call    printf
-	movl	$0, %eax
     leave
     ret
     

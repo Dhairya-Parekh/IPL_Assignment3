@@ -101,12 +101,15 @@ namespace IPL
         body->print_code();
         std::cout << "}" << std::endl;
     }
-    return_astnode::return_astnode(expression_astnode *expression)
+    return_astnode::return_astnode(expression_astnode *expression, int local_var_size)
     {
         this->expression = expression;
+        this->local_var_size = local_var_size + 4;
     }
     void return_astnode::print_code()
     {
+        // Pop local variables
+        std::cout << "\t" << "addl" << "\t" << "$" << local_var_size << ", %esp" << std::endl;
         std::cout << "\t" << "movl \t";
         expression->print_code();
         std::cout << ", %eax" << std::endl;
@@ -219,13 +222,15 @@ namespace IPL
         }
         std::cout << ")" << std::endl;
     }
-    identifier_astnode::identifier_astnode(std::string name)
+    identifier_astnode::identifier_astnode(std::string name, int offset)
     {
         this->name = name;
+        this->offset = offset;
     }
     void identifier_astnode::print_code()
     {
-        std::cout << name;
+        // Print offset from ebp
+        std::cout << offset << "(%ebp)";
     }
 
     member_astnode::member_astnode(expression_astnode *expression, identifier_astnode *name)
@@ -263,16 +268,22 @@ namespace IPL
         name->print_code();
     }
     
-    compound_statement_astnode::compound_statement_astnode(seq_astnode *statements)
+    compound_statement_astnode::compound_statement_astnode(seq_astnode *statements, int local_var_size)
     {
         this->statements = statements;
+        this->local_var_size = local_var_size;
         append_label(statements->get_labels());
     }
     void compound_statement_astnode::print_code()
     {
         std::cout << "\t" << "pushl" << "\t" << "%ebp" << std::endl;
         std::cout << "\t" << "movl" << "\t" << "%esp" << ", " << "%ebp" << std::endl;
+        
+        // Allocate space for local variables
+        std::cout << "\t" << "subl" << "\t" << "$" << local_var_size << ", " << "%esp" << std::endl;
+        
         statements->print_code();
+        
         std::cout << "\t" << "leave" << std::endl;
         std::cout << "\t" << "ret" << std::endl;
     }
