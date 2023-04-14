@@ -162,10 +162,10 @@
 
 program
 : main_definition {
-   gst->print();
+   // gst->print();
 }
 | translation_unit main_definition{
-   gst->print();
+   // gst->print();
 }
 
 translation_unit
@@ -248,6 +248,9 @@ function_definition
       Parameter* parameter = parameter_stack.top();
       parameter_stack.pop();
       Type* type = parameter->getType();
+      if(type->get_base_type() == BaseType::Void) {
+         error(@1, "The variable \"" + parameter->getName() + "\" cannot be of type void");
+      }
       LST_Entry* lst_entry = new LST_Entry(
          parameter->getName(),
          Category::Variable,
@@ -340,6 +343,9 @@ declaration
       Declarator* declarator = declarators[i];
       std::string name = declarator->getName();
       Type* type = generate_type($1, declarator->getStars(), declarator->getArrays());
+      if(type->get_base_type() == BaseType::Void) {
+         error(@1, "The variable \"" + name + "\" cannot be of type void");
+      }
       if(current_category == Category::Function) {
          current_offset -= type->get_size();
       }

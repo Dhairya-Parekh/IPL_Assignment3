@@ -5,7 +5,7 @@ struct a{
     int d;
 };
 int f(int r, struct a q, int t, int u){
-    int a,j, x,y[7];
+    int a,j,x,y[7];
     int b;
     struct a **c[4][9];
     int *d[3];

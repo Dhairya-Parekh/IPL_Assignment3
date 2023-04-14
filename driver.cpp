@@ -22,6 +22,5 @@ int main(const int argc, const char **argv)
   #endif 
 
   parser.parse();
-  cout<<"Parsing complete\n"<<endl;
 }
 

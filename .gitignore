@@ -1,1 +1,5 @@
 .vscode/
+asm/
+debug/
+output/
+stdout/
