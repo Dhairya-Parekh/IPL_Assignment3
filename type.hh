@@ -7,11 +7,34 @@
 #include <vector>
 namespace IPL
 {
+    enum class OP_Binary
+    {
+        OP_GTE,
+        OP_LTE,
+        OP_EQ,
+        OP_NEQ,
+        OP_AND,
+        OP_OR,
+        OP_GT,
+        OP_LT,
+        OP_ADD,
+        OP_SUB,
+        OP_MUL,
+        OP_DIV,
+    };
+    enum class OP_Unary
+    {
+        OP_INC,
+        OP_NOT,
+        OP_ADDR,
+        OP_MUL,
+        OP_SUB
+    };
     enum class Scope
     {
-        Global=0,
-        Local=1,
-        Param=2
+        Global = 0,
+        Local = 1,
+        Param = 2
     };
     enum class Category
     {
@@ -36,6 +59,7 @@ namespace IPL
         std::string name;
         Type *sub_type;
         int size;
+
     public:
         Type(BaseType base_type, std::string name, Type *sub_type, int size) : base_type(base_type), name(name), sub_type(sub_type), size(size) {}
         Type(BaseType base_type, std::string name, Type *sub_type) : base_type(base_type), name(name), sub_type(sub_type) {}
@@ -50,13 +74,15 @@ namespace IPL
         void set_name(std::string name) { this->name = name; }
         void set_sub_type(Type *sub_type) { this->sub_type = sub_type; }
         void set_size(int size) { this->size = size; }
-        
     };
-    std::ostream &operator<<(std::ostream &strm, Category category);
-    std::ostream &operator<<(std::ostream &strm, Scope scope);
-    std::ostream &operator<<(std::ostream &strm, BaseType base_type);
-    std::ostream &operator<<(std::ostream &strm, Type* type);
 
-    Type* generate_type(Type* base_type, int stars, std::vector<int> arrays);
+    std::ostream &operator<<(std::ostream &strm, OP_Binary op);
+    std::ostream &operator<<(std::ostream &strm, OP_Unary op);
+    std::ostream &operator<<(std::ostream &strm, Scope scope);
+    std::ostream &operator<<(std::ostream &strm, Category category);
+    std::ostream &operator<<(std::ostream &strm, BaseType base_type);
+    std::ostream &operator<<(std::ostream &strm, Type *type);
+
+    Type *generate_type(Type *base_type, int stars, std::vector<int> arrays);
 }
 #endif

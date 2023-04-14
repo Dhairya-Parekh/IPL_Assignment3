@@ -2,6 +2,72 @@
 
 namespace IPL
 {
+     
+    std::ostream &operator<<(std::ostream &strm, OP_Binary op)
+    {
+        switch (op)
+        {
+        case OP_Binary::OP_GTE:
+            strm << ">=";
+            break;
+        case OP_Binary::OP_LTE:
+            strm << "<=";
+            break;
+        case OP_Binary::OP_EQ:
+            strm << "==";
+            break;
+        case OP_Binary::OP_NEQ:
+            strm << "!=";
+            break;
+        case OP_Binary::OP_AND:
+            strm << "&&";
+            break;
+        case OP_Binary::OP_OR:
+            strm << "||";
+            break;
+        case OP_Binary::OP_GT:
+            strm << ">";
+            break;
+        case OP_Binary::OP_LT:
+            strm << "<";
+            break;
+        case OP_Binary::OP_ADD:
+            strm << "+";
+            break;
+        case OP_Binary::OP_SUB:
+            strm << "-";
+            break;
+        case OP_Binary::OP_MUL:
+            strm << "*";
+            break;
+        case OP_Binary::OP_DIV:
+            strm << "/";
+            break;
+        }
+        return strm;
+    }
+    std::ostream &operator<<(std::ostream &strm, OP_Unary op)
+    {
+        switch (op)
+        {
+        case OP_Unary::OP_INC:
+            strm << "++";
+            break;
+        case OP_Unary::OP_NOT:
+            strm << "!";
+            break;
+        case OP_Unary::OP_ADDR:
+            strm << "&";
+            break;
+        case OP_Unary::OP_MUL:
+            strm << "*";
+            break;
+        case OP_Unary::OP_SUB:
+            strm << "-";
+            break;
+        }
+        return strm;
+    }   
     std::ostream &operator<<(std::ostream &strm, Category category)
     {
         switch (category)
