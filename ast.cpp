@@ -199,9 +199,11 @@ namespace IPL
     }
     void assignE_astnode::print_code()
     {
-        left->print_code();
-        std::cout << " = ";
+        //Assembly code for assignment
+        std::cout << "\t" << "movl \t";
         right->print_code();
+        std::cout << ", ";
+        left->print_code();
         std::cout << std::endl;
     }
     funcall_astnode::funcall_astnode(identifier_astnode *name)
