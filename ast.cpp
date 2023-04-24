@@ -217,8 +217,32 @@ namespace IPL
     }
     void op_unary_astnode::generate_code()
     {
-        std::cout << "op_unary_astnode::generate_code()" << std::endl;
-        // expression->generate_code();
+        if(op==OP_Unary::OP_NOT)
+        {
+            expression->generate_code();
+            std::cout << "\t" << "cmpl" << "\t" << "$0, " << R.top() << std::endl;
+            std::cout << "\t" << "sete" << "\t" << "%al" << std::endl;
+            std::cout << "\t" << "movzbl" << "\t" << "%al, " << R.top() << std::endl;
+        }
+        else if(op==OP_Unary::OP_SUB)
+        {
+            expression->generate_code();
+            std::cout << "\t" << "negl" << "\t" << R.top() << std::endl;
+        }
+        else if(op==OP_Unary::OP_INC)
+        {
+            expression->generate_code();
+            if(expression->get_address()==nullptr){
+                std::cout << "Error: cannot increment a non-addressable value" << std::endl;
+            }
+            else{
+                std::cout << "\t" << "incl" << "\t" << expression->get_address() << std::endl;
+            }
+        }
+        else
+        {
+            std::cout << "Error operation not handled yet" << std::endl;
+        }
     }
 
     int_astnode::int_astnode(int value)
