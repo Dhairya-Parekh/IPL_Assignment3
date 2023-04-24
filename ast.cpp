@@ -11,6 +11,25 @@ std::string get_new_instruction_label()
 
 namespace IPL
 {
+    ASTNodeType abstract_astnode::get_type()
+    {
+        return node_type;
+    }
+    void abstract_astnode::set_type(ASTNodeType type)
+    {
+        this->node_type = type;
+    }
+
+
+    std::string statement_astnode::get_nextlist()
+    {
+        return nextlist;
+    }
+    void statement_astnode::set_nextlist(std::string nextlist)
+    {
+        this->nextlist = nextlist;
+    }
+    
     int expression_astnode::get_label()
     {
         return label;
@@ -27,12 +46,30 @@ namespace IPL
     {
         this->address = address;
     }
+    std::string expression_astnode::get_truelist()
+    {
+        return truelist;
+    }
+    void expression_astnode::set_truelist(std::string truelist)
+    {
+        this->truelist = truelist;
+    }
+    std::string expression_astnode::get_falselist()
+    {
+        return falselist;
+    }
+    void expression_astnode::set_falselist(std::string falselist)
+    {
+        this->falselist = falselist;
+    }
+
 
     identifier_astnode::identifier_astnode(std::string name, int offset)
     {
         this->name = name;
         this->offset = offset;
         this->address = new Address(offset, "ebp");
+        this->node_type = ASTNodeType::Identifier;
     }
     std::vector<std::string> identifier_astnode::tree_traversal()
     {
@@ -51,6 +88,7 @@ namespace IPL
     {
         this->expression = expression;
         this->name = name;
+        this->node_type = ASTNodeType::Member;
     }
     std::vector<std::string> member_astnode::tree_traversal()
     {
@@ -70,6 +108,7 @@ namespace IPL
     {
         this->expression = expression;
         this->index = index;
+        this->node_type = ASTNodeType::Array;
     }
     std::vector<std::string> array_astnode::tree_traversal()
     {
@@ -92,6 +131,7 @@ namespace IPL
     {
         this->expression = expression;
         this->name = name;
+        this->node_type = ASTNodeType::Arrow;
     }
     std::vector<std::string> arrow_astnode::tree_traversal()
     {
@@ -112,6 +152,7 @@ namespace IPL
         this->op = op;
         this->left = left;
         this->right = right;
+        this->node_type = ASTNodeType::Op_binary;
     }
     std::vector<std::string> op_binary_astnode::tree_traversal()
     {
@@ -196,6 +237,114 @@ namespace IPL
                 R.push(reg);
             }
         }
+        else if(op==OP_Binary::OP_OR){
+            left->set_truelist(this->truelist);
+            left->set_falselist(get_new_instruction_label());
+            right->set_truelist(this->truelist);
+            right->set_falselist(this->falselist);
+            left->generate_code();
+            std::cout << left->get_falselist() << ":" << std::endl;
+            right->generate_code();
+        }
+        else if(op==OP_Binary::OP_AND){
+            left->set_truelist(get_new_instruction_label());
+            left->set_falselist(this->falselist);
+            right->set_truelist(this->truelist);
+            right->set_falselist(this->falselist);
+            left->generate_code();
+            std::cout << left->get_truelist() << ":" << std::endl;
+            right->generate_code();
+        }
+        else if(op==OP_Binary::OP_EQ || op==OP_Binary::OP_NEQ || op==OP_Binary::OP_LT || op==OP_Binary::OP_GT || op==OP_Binary::OP_LTE || op==OP_Binary::OP_GTE)
+        {
+            int l_label = left->get_label();
+            int r_label = right->get_label();
+
+            if(l_label>=total_registers && r_label>=total_registers){
+                right->generate_code();
+                std::cout << "\t" << "pushl" << "\t" << R.top() << std::endl;
+                left->generate_code();
+                std::string reg = R.pop();
+                std::cout << "\t" << "popl" << "\t" << R.top() << std::endl;
+                std::cout << "\t" << "cmpl" << "\t" << R.top() << ", " << reg << std::endl;
+                if(op==OP_Binary::OP_EQ)
+                    std::cout << "\t" << "je" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_NEQ)
+                    std::cout << "\t" << "jne" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_LT)
+                    std::cout << "\t" << "jl" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_GT)
+                    std::cout << "\t" << "jg" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_LTE)
+                    std::cout << "\t" << "jle" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_GTE)
+                    std::cout << "\t" << "jge" << "\t" << this->truelist << std::endl;
+                R.push(reg);
+            }
+            else if(l_label>=total_registers && r_label<total_registers)
+            {
+                left->generate_code();
+                std::string reg = R.pop();
+                right->generate_code();
+                std::cout << "\t" << "cmpl" << "\t" << R.top() << ", " << reg << std::endl;
+                if(op==OP_Binary::OP_EQ)
+                    std::cout << "\t" << "je" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_NEQ)
+                    std::cout << "\t" << "jne" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_LT)
+                    std::cout << "\t" << "jl" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_GT)
+                    std::cout << "\t" << "jg" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_LTE)
+                    std::cout << "\t" << "jle" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_GTE)
+                    std::cout << "\t" << "jge" << "\t" << this->truelist << std::endl;  
+                R.push(reg);
+            }
+            else if(l_label<total_registers && r_label>=total_registers)
+            {
+                R.swap();
+                right->generate_code();
+                std::string reg = R.pop();
+                left->generate_code();
+                std::cout << "\t" << "cmpl" << "\t" << reg << ", " << R.top() << std::endl;
+                if(op==OP_Binary::OP_EQ)
+                    std::cout << "\t" << "je" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_NEQ)
+                    std::cout << "\t" << "jne" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_LT)
+                    std::cout << "\t" << "jl" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_GT)
+                    std::cout << "\t" << "jg" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_LTE)
+                    std::cout << "\t" << "jle" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_GTE)
+                    std::cout << "\t" << "jge" << "\t" << this->truelist << std::endl;
+                R.push(reg);
+                R.swap();
+            }
+            else
+            {
+                left->generate_code();
+                std::string reg = R.pop();
+                right->generate_code();
+                std::cout << "\t" << "cmpl" << "\t" << R.top() << ", " << reg << std::endl;
+                if(op==OP_Binary::OP_EQ)
+                    std::cout << "\t" << "je" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_NEQ)
+                    std::cout << "\t" << "jne" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_LT)
+                    std::cout << "\t" << "jl" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_GT)
+                    std::cout << "\t" << "jg" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_LTE)
+                    std::cout << "\t" << "jle" << "\t" << this->truelist << std::endl;
+                else if(op==OP_Binary::OP_GTE)
+                    std::cout << "\t" << "jge" << "\t" << this->truelist << std::endl;  
+                R.push(reg);
+            }
+            std::cout << "\t" << "jmp" << "\t" << this->falselist << std::endl;   
+        }
         else
         {
             std::cout << "Error operation not handled yet" << std::endl;
@@ -206,6 +355,7 @@ namespace IPL
     {
         this->op = op;
         this->expression = expression;
+        this->node_type = ASTNodeType::Op_unary;
     }
     std::vector<std::string> op_unary_astnode::tree_traversal()
     {
@@ -219,10 +369,9 @@ namespace IPL
     {
         if(op==OP_Unary::OP_NOT)
         {
+            expression->set_truelist(this->falselist);
+            expression->set_falselist(this->truelist);
             expression->generate_code();
-            std::cout << "\t" << "cmpl" << "\t" << "$0, " << R.top() << std::endl;
-            std::cout << "\t" << "sete" << "\t" << "%al" << std::endl;
-            std::cout << "\t" << "movzbl" << "\t" << "%al, " << R.top() << std::endl;
         }
         else if(op==OP_Unary::OP_SUB)
         {
@@ -248,6 +397,7 @@ namespace IPL
     int_astnode::int_astnode(int value)
     {
         this->value = value;
+        this->node_type = ASTNodeType::Int;
     }
     std::vector<std::string> int_astnode::tree_traversal()
     {
@@ -266,6 +416,7 @@ namespace IPL
     string_astnode::string_astnode(std::string value)
     {
         this->value = value;
+        this->node_type = ASTNodeType::String;
     }
     std::vector<std::string> string_astnode::tree_traversal()
     {
@@ -285,6 +436,7 @@ namespace IPL
     {
         this->left = left;
         this->right = right;
+        this->node_type = ASTNodeType::AssignE;
     }
     std::vector<std::string> assignE_astnode::tree_traversal()
     {
@@ -322,6 +474,7 @@ namespace IPL
     funcall_astnode::funcall_astnode(identifier_astnode *name)
     {
         this->name = name;
+        this->node_type = ASTNodeType::Funcall;
     }
     void funcall_astnode::add_argument(expression_astnode *argument)
     {
@@ -349,6 +502,7 @@ namespace IPL
 
     seq_astnode::seq_astnode()
     {
+        this->node_type = ASTNodeType::Seq;
     }
     void seq_astnode::add_statement(statement_astnode *statement)
     {
@@ -368,12 +522,20 @@ namespace IPL
     {
         for (auto statement : statements)
         {
-            statement->generate_code();
+            if(statement->get_type()==ASTNodeType::If){
+                statement->set_nextlist(get_new_instruction_label());
+                statement->generate_code();
+                std::cout << statement->get_nextlist() << ":" << std::endl;
+            }
+            else{
+                statement->generate_code();
+            }
         }
     }
 
     empty_astnode::empty_astnode()
     {
+        this->node_type = ASTNodeType::Empty;
     }
     std::vector<std::string> empty_astnode::tree_traversal()
     {
@@ -387,6 +549,7 @@ namespace IPL
     assignS_astnode::assignS_astnode(expression_astnode *assignment_expression)
     {
         this->assignment_expression = assignment_expression;
+        this->node_type = ASTNodeType::AssignS;
     }
     std::vector<std::string> assignS_astnode::tree_traversal()
     {
@@ -405,6 +568,7 @@ namespace IPL
         this->condition = condition;
         this->if_body = if_body;
         this->else_body = else_body;
+        this->node_type = ASTNodeType::If;
     }
     std::vector<std::string> if_astnode::tree_traversal()
     {
@@ -422,28 +586,23 @@ namespace IPL
     }
     void if_astnode::generate_code()
     {
-        std::cout << "if" << std::endl;
-        // std::string else_label = "else" + std::to_string(if_counter);
-        // std::string end_label = "end" + std::to_string(if_counter);
-        // if_counter++;
-        // condition->generate_code();
-        // std::cout << "\t" << "popl" << "\t" << "%eax" << std::endl;
-        // std::cout << "\t" << "cmpl" << "\t" << "$0" << ", " << "%eax" << std::endl;
-        // std::cout << "\t" << "je" << "\t" << else_label << std::endl;
-        // if_body->generate_code();
-        // std::cout << "\t" << "jmp" << "\t" << end_label << std::endl;
-        // std::cout << else_label << ":" << std::endl;
-        // if (else_body != NULL)
-        // {
-        //     else_body->generate_code();
-        // }
-        // std::cout << end_label << ":" << std::endl;
+        condition->set_truelist(get_new_instruction_label());
+        condition->set_falselist(get_new_instruction_label());
+        if_body->set_nextlist(get_new_instruction_label());
+        else_body->set_nextlist(get_new_instruction_label());
+        condition->generate_code();
+        std::cout << condition->get_truelist() << ":" << std::endl;
+        if_body->generate_code();
+        std::cout << "\t" << "jmp" << "\t" << this->get_nextlist() << std::endl;
+        std::cout << condition->get_falselist() << ":" << std::endl;
+        else_body->generate_code();
     }
 
     while_astnode::while_astnode(expression_astnode *condition, statement_astnode *body)
     {
         this->condition = condition;
         this->body = body;
+        this->node_type = ASTNodeType::While;
     }
     std::vector<std::string> while_astnode::tree_traversal()
     {
@@ -476,6 +635,7 @@ namespace IPL
         this->condition = condition;
         this->step = step;
         this->body = body;
+        this->node_type = ASTNodeType::For;
     }
     std::vector<std::string> for_astnode::tree_traversal()
     {
@@ -512,6 +672,7 @@ namespace IPL
     {
         this->expression = expression;
         this->local_var_size = local_var_size + 4;
+        this->node_type = ASTNodeType::Return;
     }
     std::vector<std::string> return_astnode::tree_traversal()
     {
@@ -544,6 +705,7 @@ namespace IPL
     proccall_astnode::proccall_astnode(std::string name)
     {
         this->name = name;
+        this->node_type = ASTNodeType::Proccall;
     }
     void proccall_astnode::add_argument(expression_astnode *argument)
     {
@@ -569,6 +731,7 @@ namespace IPL
     printf_astnode::printf_astnode(string_astnode *format)
     {
         this->format = format;
+        this->node_type = ASTNodeType::Printf;
     }
     void printf_astnode::add_argument(expression_astnode *argument)
     {

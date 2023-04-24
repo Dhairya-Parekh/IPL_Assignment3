@@ -85,9 +85,42 @@ Case 1: OP is add sub or mul
         r = r OP R.top
         R.push(r)
 
-Case 2: OP is OR AND REL_OP
+Case 2: OP is OR AND
 --> Complicated, need to think about it
 
+Case 3: OP is relational operator
+--> 
+    if expression1.label, expression2.label >= N:
+        gencode(expression2)
+        push into mem R.top
+        gencode(expression1)
+        r = R.pop
+        pop from mem into R.top
+        r = r OP R.top
+        R.push(r)
+    
+    if expression1.label, expression2.label < N:
+        gencode(expression1)
+        r = R.pop
+        gencode(expression2)
+        r = r OP R.top
+        R.push(r)
+
+    if expression1.label < N, expression2.label >= N:
+        swap(R)
+        gencode(expression2)
+        r = R.pop
+        gencode(expression1)
+        R.top = R.top OP r
+        R.push(r)
+        swap(R)
+    
+    if expression1.label >= N, expression2.label < N:
+        gencode(expression1)
+        r = R.pop
+        gencode(expression2)
+        r = r OP R.top
+        R.push(r)
 
 Identifier node
 --> 

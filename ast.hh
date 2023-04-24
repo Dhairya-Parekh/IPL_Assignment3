@@ -9,28 +9,42 @@ namespace IPL
 {
     class abstract_astnode
     {
+    protected:
+        ASTNodeType node_type;
     public:
         virtual ~abstract_astnode() {}
         virtual std::vector<std::string> tree_traversal() = 0;
         virtual void generate_code() = 0;
+        ASTNodeType get_type();
+        void set_type(ASTNodeType type);
     };
 
     class statement_astnode : public abstract_astnode
     {
+    protected:
+        std::string nextlist;
     public:
         virtual ~statement_astnode() {}
+        std::string get_nextlist();
+        void set_nextlist(std::string nextlist);
     };
     class expression_astnode : public abstract_astnode
     {
     protected:
         int label;
         Address *address;
+        std::string truelist;
+        std::string falselist;
     public:
         virtual ~expression_astnode() {}
         int get_label();
         void set_label(int label);
         Address *get_address();
         void set_address(Address *address);
+        std::string get_truelist();
+        void set_truelist(std::string truelist);
+        std::string get_falselist();
+        void set_falselist(std::string falselist);
     };
     class reference_astnode : public expression_astnode
     {

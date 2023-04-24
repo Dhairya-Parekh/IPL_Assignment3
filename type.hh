@@ -53,6 +53,28 @@ namespace IPL
         Array,
         Pointer
     };
+    enum class ASTNodeType
+    {
+        Identifier,
+        Member,
+        Array,
+        Arrow,
+        Op_binary,
+        Op_unary,
+        Int,
+        String,
+        AssignE,
+        Funcall,
+        Seq,
+        Empty,
+        AssignS,
+        If,
+        While,
+        For,
+        Return,
+        Proccall,
+        Printf
+    };
     class Type
     {
     private:
