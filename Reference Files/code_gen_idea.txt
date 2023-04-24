@@ -1,0 +1,122 @@
+Example tree structure of AST
+AST
+|_ seq_node : statement
+    |_ assignement statement : statement
+    |_ if statement : statement
+    |_ while statement : statement
+    |_ for statement : statement
+    |_ procedure call : statement
+    |_ printf call : statement
+    |_ return statement : statement
+
+// Can rewrite the grammar so that assignement expression is a statement to capture the special case of expression occurring as a statement
+
+
+assignment_expression
+: unary_expression OP_ASSIGN expression
+
+
+-->
+    if expression.label, unary_expression.label >= N:
+        gencode(expression)
+        push into mem R.top
+        gencode(unary_expression) // Tell gencode to generate address in R.top
+        r = R.pop
+        pop from mem into R.top
+        mov R.top (r)
+        R.push(r)
+    
+    if expression.label, unary_expression.label < N:
+        gencode(unary_expression) // Tell gencode to generate address in R.top
+        r = R.pop
+        gencode(expression)
+        mov R.top (r)
+        R.push(r)
+
+    if expression.label < N, unary_expression.label >= N:
+        gencode(unary_expression) // Tell gencode to generate address in R.top
+        r = R.pop
+        gencode(expression)
+        mov R.top (r)
+        R.push(r)
+    
+    if expression.label >= N, unary_expression.label < N:
+        gencode(expression)
+        r = R.pop
+        gencode(unary_expression) // Tell gencode to generate address in R.top
+        mov R.top (r)
+        R.push(r)
+        
+
+Binary expression node 
+: expression1 OP expression2
+
+Case 1: OP is add sub or mul
+--> 
+    if expression1.label, expression2.label >= N:
+        gencode(expression2)
+        push into mem R.top
+        gencode(expression1)
+        r = R.pop
+        pop from mem into R.top
+        r = r OP R.top
+        R.push(r)
+    
+    if expression1.label, expression2.label < N:
+        gencode(expression1)
+        r = R.pop
+        gencode(expression2)
+        r = r OP R.top
+        R.push(r)
+
+    if expression1.label < N, expression2.label >= N:
+        swap(R)
+        gencode(expression2)
+        r = R.pop
+        gencode(expression1)
+        R.top = R.top OP r
+        R.push(r)
+        swap(R)
+    
+    if expression1.label >= N, expression2.label < N:
+        gencode(expression1)
+        r = R.pop
+        gencode(expression2)
+        r = r OP R.top
+        R.push(r)
+
+Case 2: OP is OR AND REL_OP
+--> Complicated, need to think about it
+
+
+Identifier node
+--> 
+    if value is required: 
+        movl $id, R.top
+    if address is required:
+        leal $id, R.top
+
+Unary expression node
+: OP expression
+--> 
+    if OP is unary minus:
+        gencode(expression)
+        R.top = -R.top
+    if OP is unary NOT:
+        gencode(expression)
+        R.top = !R.top
+    if OP is INC_OP:
+        if expression.label >= N:
+            gencode(expression)
+            push into mem R.top
+            gencode(expression) // Tell gencode to generate address in R.top
+            incl (R.top)
+            pop from mem into R.top
+        if expression.label < N:
+            gencode(expression)
+            r = R.pop
+            gencode(expression) // Tell gencode to generate address in R.top
+            incl (R.top)
+            R.push(r)
+
+    

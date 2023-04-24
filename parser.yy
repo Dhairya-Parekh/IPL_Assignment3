@@ -73,22 +73,13 @@
    GST* gst = new GST();
    LST* current_lst = NULL;
    int current_offset = 0;
-   std::map<std::string, abstract_astnode*> func_ast_map;
+   std::map<std::string, compound_statement*> func_ast_map;
    Category current_category = Category::Const;
-   int label_number = 0;
-   std::string get_new_label(){
-      return ".LC" + std::to_string(label_number++);
-   }
    void generate_code(){
       for(auto it = func_ast_map.begin(); it != func_ast_map.end(); it++) {
-         std::cout << "\t" << ".globl " << it->first << std::endl;
-         std::cout << "\t" << ".type " << it->first << ", @function" << std::endl;
          if(it->second){
-            it->second->print_labels();
-            std::cout << it->first << ":" << std::endl;
-            it->second->print_code();
+            it->second->generate_code(it->first);
          }
-         std::cout << std::endl;
       }
    }
 }
@@ -155,7 +146,7 @@
 %nterm <ParameterList*> parameter_list
 %nterm <Parameter*> parameter_declaration
 
-%nterm <compound_statement_astnode*> compound_statement
+%nterm <compound_statement*> compound_statement
 %nterm <seq_astnode*> statement_list
 %nterm <statement_astnode*> statement
 %nterm <if_astnode*> selection_statement
@@ -418,11 +409,11 @@ compound_statement
    $$ = nullptr; 
 }
 | LCB statement_list RCB {
-   $$ = new compound_statement_astnode($2, 0);
+   $$ = new compound_statement($2, 0);
 }
 | LCB declaration_list statement_list RCB { 
    int size = current_lst->getTotalSize();
-   $$ = new compound_statement_astnode($3, size); 
+   $$ = new compound_statement($3, size); 
 }
 
 statement_list
@@ -603,14 +594,12 @@ procedure_call
 }
 
 printf_call
-: PRINTF LRB CONSTANT_STRING RRB EOS { 
-   std::string new_label = get_new_label();
-   $$ = new printf_astnode(new string_astnode($3, new_label)); 
+: PRINTF LRB CONSTANT_STRING RRB EOS {
+   $$ = new printf_astnode(new string_astnode($3)); 
 }
 | PRINTF LRB CONSTANT_STRING COMMA expression_list RRB EOS { 
    // TODO: check if params and thier types are correct
-   std::string new_label = get_new_label();
-   $$ = new printf_astnode(new string_astnode($3, new_label));
+   $$ = new printf_astnode(new string_astnode($3));
    std::vector<expression_astnode*> expressions = $5->get_expressions();
    for (unsigned int i = 0; i < expressions.size(); i++) {
       $$->add_argument(expressions[i]);

@@ -1,155 +1,110 @@
 #include "ast.hh"
 #include <iostream>
+
+int label_number = 0;
+RegisterStack R;
+int total_registers = R.size();
+std::string get_new_instruction_label()
+{
+    return ".LC" + std::to_string(label_number++);
+}
+
 namespace IPL
 {
-    void abstract_astnode::append_label(std::string label)
+    int expression_astnode::get_label()
     {
-        labels += label;
+        return label;
     }
-    void abstract_astnode::print_labels()
+    void expression_astnode::set_label(int label)
     {
-        std::cout << labels;
+        this->label = label;
     }
-    std::string abstract_astnode::get_labels()
+    Address *expression_astnode::get_address()
     {
-        return labels;
+        return address;
     }
-    empty_astnode::empty_astnode()
+    void expression_astnode::set_address(Address *address)
     {
-        code = "";
+        this->address = address;
     }
-    void empty_astnode::print_code()
-    {
-        std::cout << code << std::endl;
-    }
-    seq_astnode::seq_astnode()
-    {
-        code = "";
-    }
-    void seq_astnode::add_statement(statement_astnode *statement)
-    {
-        statements.push_back(statement);
-        if(statement->get_labels() != "")
-        {
-            append_label(statement->get_labels()+"\n");
-        }
-    }
-    void seq_astnode::print_code()
-    {
-        for (auto statement : statements)
-        {
-            statement->print_code();
-        }
-    }
-    assignS_astnode::assignS_astnode(expression_astnode *assignment_expression)
-    {
-        this->assignment_expression = assignment_expression;
-    }
-    void assignS_astnode::print_code()
-    {
-        assignment_expression->print_code();
-    }
-    if_astnode::if_astnode(expression_astnode *condition, statement_astnode *if_body, statement_astnode *else_body)
-    {
-        this->condition = condition;
-        this->if_body = if_body;
-        this->else_body = else_body;
-    }
-    void if_astnode::print_code()
-    {
-        std::cout << "if (";
-        condition->print_code();
-        std::cout << ") {" << std::endl;
-        if_body->print_code();
-        std::cout << "}" << std::endl;
-        if (else_body != NULL)
-        {
-            std::cout << "else {" << std::endl;
-            else_body->print_code();
-            std::cout << "}" << std::endl;
-        }
-    }
-    while_astnode::while_astnode(expression_astnode *condition, statement_astnode *body)
-    {
-        this->condition = condition;
-        this->body = body;
-    }
-    void while_astnode::print_code()
-    {
-        std::cout << "while (";
-        condition->print_code();
-        std::cout << ") {" << std::endl;
-        body->print_code();
-        std::cout << "}" << std::endl;
-    }
-    for_astnode::for_astnode(assignE_astnode *init, expression_astnode *condition, assignE_astnode *step, statement_astnode *body)
-    {
-        this->init = init;
-        this->condition = condition;
-        this->step = step;
-        this->body = body;
-    }
-    void for_astnode::print_code()
-    {
-        std::cout << "for (";
-        init->print_code();
-        std::cout << "; ";
-        condition->print_code();
-        std::cout << "; ";
-        step->print_code();
-        std::cout << ") {" << std::endl;
-        body->print_code();
-        std::cout << "}" << std::endl;
-    }
-    return_astnode::return_astnode(expression_astnode *expression, int local_var_size)
-    {
-        this->expression = expression;
-        this->local_var_size = local_var_size + 4;
-    }
-    void return_astnode::print_code()
-    {
-        // Pop local variables
-        std::cout << "\t" << "addl" << "\t" << "$" << local_var_size << ", %esp" << std::endl;
-        std::cout << "\t" << "movl \t";
-        expression->print_code();
-        std::cout << ", %eax" << std::endl;
-    }
-    proccall_astnode::proccall_astnode(std::string name)
+
+    identifier_astnode::identifier_astnode(std::string name, int offset)
     {
         this->name = name;
+        this->offset = offset;
+        this->address = new Address(offset, "ebp");
     }
-    void proccall_astnode::add_argument(expression_astnode *argument)
+    std::vector<std::string> identifier_astnode::tree_traversal()
     {
-        arguments.push_back(argument);
+        std::vector<std::string> runtime_constants;
+        label = 1;
+        return runtime_constants;
     }
-    void proccall_astnode::print_code()
+    void identifier_astnode::generate_code()
     {
-        std::cout << name << std::endl;
+        std::cout << "\t"
+                  << "movl"
+                  << "\t" << address << ", " << R.top() << std::endl;
     }
-    printf_astnode::printf_astnode(string_astnode *format)
+
+    member_astnode::member_astnode(expression_astnode *expression, identifier_astnode *name)
     {
-        this->format = format;
-        append_label(format->get_labels());
+        this->expression = expression;
+        this->name = name;
     }
-    void printf_astnode::add_argument(expression_astnode *argument)
+    std::vector<std::string> member_astnode::tree_traversal()
     {
-        arguments.push_back(argument);
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> expression_constants = expression->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), expression_constants.begin(), expression_constants.end());
+        label = expression->get_label();
+        return runtime_constants;
     }
-    void printf_astnode::print_code()
+    void member_astnode::generate_code()
     {
-        // Push arguments in reverse order
-        for (auto it = arguments.rbegin(); it != arguments.rend(); ++it)
-        {
-            std::cout << "\t" << "pushl" << "\t";
-            (*it)->print_code();
-            std::cout << std::endl;
-        }
-        // Push format string
-        std::cout << "\t" << "pushl" << "\t";
-        format->print_code();
-        std::cout << std::endl;
-        // Call printf
-        std::cout << "\t" << "call" << "\t" << "printf" << std::endl;
+        std::cout << "member_astnode::generate_code()" << std::endl;
+        // expression->generate_code();
+    }
+
+    array_astnode::array_astnode(expression_astnode *expression, expression_astnode *index)
+    {
+        this->expression = expression;
+        this->index = index;
+    }
+    std::vector<std::string> array_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> expression_constants = expression->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), expression_constants.begin(), expression_constants.end());
+        std::vector<std::string> index_constants = index->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), index_constants.begin(), index_constants.end());
+        label = std::max(expression->get_label(), index->get_label());
+        return runtime_constants;
+    }
+    void array_astnode::generate_code()
+    {
+        std::cout << "array_astnode::generate_code()" << std::endl;
+        // expression->generate_code();
+        // index->generate_code();
+    }
+
+    arrow_astnode::arrow_astnode(expression_astnode *expression, identifier_astnode *name)
+    {
+        this->expression = expression;
+        this->name = name;
+    }
+    std::vector<std::string> arrow_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> expression_constants = expression->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), expression_constants.begin(), expression_constants.end());
+        label = expression->get_label();
+        return runtime_constants;
+    }
+    void arrow_astnode::generate_code()
+    {
+        std::cout << "arrow_astnode::generate_code()" << std::endl;
+        // expression->generate_code();
     }
 
     op_binary_astnode::op_binary_astnode(expression_astnode *left, expression_astnode *right, OP_Binary op)
@@ -158,54 +113,188 @@ namespace IPL
         this->left = left;
         this->right = right;
     }
-    void op_binary_astnode::print_code()
+    std::vector<std::string> op_binary_astnode::tree_traversal()
     {
-        left->print_code();
-        std::cout<< " " << op << " ";
-        right->print_code();
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> left_constants = left->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), left_constants.begin(), left_constants.end());
+        std::vector<std::string> right_constants = right->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), right_constants.begin(), right_constants.end());
+        int l_label = left->get_label();
+        int r_label = right->get_label();
+        label = l_label == r_label ? l_label + 1 : std::max(l_label, r_label);
+        return runtime_constants;
     }
+    void op_binary_astnode::generate_code()
+    {
+        if(op==OP_Binary::OP_ADD || op==OP_Binary::OP_SUB || op==OP_Binary::OP_MUL || op==OP_Binary::OP_DIV)
+        {
+            int l_label = left->get_label();
+            int r_label = right->get_label();
+            
+            if(l_label>=total_registers && r_label>=total_registers){
+                right->generate_code();
+                std::cout << "\t" << "pushl" << "\t" << R.top() << std::endl;
+                left->generate_code();
+                std::string reg = R.pop();
+                std::cout << "\t" << "popl" << "\t" << R.top() << std::endl;
+                if(op==OP_Binary::OP_ADD)
+                    std::cout << "\t" << "addl" << "\t" << R.top() << ", " << reg << std::endl;
+                else if(op==OP_Binary::OP_SUB)
+                    std::cout << "\t" << "subl" << "\t" << R.top() << ", " << reg << std::endl;
+                else if(op==OP_Binary::OP_MUL)
+                    std::cout << "\t" << "imull" << "\t" << R.top() << ", " << reg << std::endl;
+                else if(op==OP_Binary::OP_DIV)
+                    std::cout << "\t" << "idivl" << "\t" << R.top() << ", " << reg << std::endl;
+                R.push(reg);
+            }
+            else if(l_label>=total_registers && r_label<total_registers)
+            {
+                left->generate_code();
+                std::string reg = R.pop();
+                right->generate_code();
+                if(op==OP_Binary::OP_ADD)
+                    std::cout << "\t" << "addl" << "\t" << R.top() << ", " << reg << std::endl;
+                else if(op==OP_Binary::OP_SUB)
+                    std::cout << "\t" << "subl" << "\t" << R.top() << ", " << reg << std::endl;
+                else if(op==OP_Binary::OP_MUL)
+                    std::cout << "\t" << "imull" << "\t" << R.top() << ", " << reg << std::endl;
+                else if(op==OP_Binary::OP_DIV)
+                    std::cout << "\t" << "idivl" << "\t" << R.top() << ", " << reg << std::endl;
+                R.push(reg);
+            }
+            else if(l_label<total_registers && r_label>=total_registers)
+            {
+                R.swap();
+                right->generate_code();
+                std::string reg = R.pop();
+                left->generate_code();
+                if(op==OP_Binary::OP_ADD)
+                    std::cout << "\t" << "addl" << "\t" << reg << ", " << R.top() << std::endl;
+                else if(op==OP_Binary::OP_SUB)
+                    std::cout << "\t" << "subl" << "\t" << reg << ", " << R.top() << std::endl;
+                else if(op==OP_Binary::OP_MUL)
+                    std::cout << "\t" << "imull" << "\t" << reg << ", " << R.top() << std::endl;
+                else if(op==OP_Binary::OP_DIV)
+                    std::cout << "\t" << "idivl" << "\t" << reg << ", " << R.top() << std::endl;
+                R.push(reg);
+                R.swap();
+            }
+            else
+            {
+                left->generate_code();
+                std::string reg = R.pop();
+                right->generate_code();
+                if(op==OP_Binary::OP_ADD)
+                    std::cout << "\t" << "addl" << "\t" << R.top() << ", " << reg << std::endl;
+                else if(op==OP_Binary::OP_SUB)
+                    std::cout << "\t" << "subl" << "\t" << R.top() << ", " << reg << std::endl;
+                else if(op==OP_Binary::OP_MUL)
+                    std::cout << "\t" << "imull" << "\t" << R.top() << ", " << reg << std::endl;
+                else if(op==OP_Binary::OP_DIV)
+                    std::cout << "\t" << "idivl" << "\t" << R.top() << ", " << reg << std::endl;
+                R.push(reg);
+            }
+        }
+        else
+        {
+            std::cout << "Error operation not handled yet" << std::endl;
+        }
+    }
+
     op_unary_astnode::op_unary_astnode(expression_astnode *expression, OP_Unary op)
     {
         this->op = op;
         this->expression = expression;
     }
-    void op_unary_astnode::print_code()
+    std::vector<std::string> op_unary_astnode::tree_traversal()
     {
-        std::cout << op;
-        expression->print_code();
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> expression_constants = expression->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), expression_constants.begin(), expression_constants.end());
+        label = expression->get_label();
+        return runtime_constants;
     }
+    void op_unary_astnode::generate_code()
+    {
+        std::cout << "op_unary_astnode::generate_code()" << std::endl;
+        // expression->generate_code();
+    }
+
     int_astnode::int_astnode(int value)
     {
         this->value = value;
     }
-    void int_astnode::print_code()
+    std::vector<std::string> int_astnode::tree_traversal()
     {
-        std::cout <<"$"<<value;
+        std::vector<std::string> runtime_constants;
+        label = 0;
+        return runtime_constants;
     }
-    string_astnode::string_astnode(std::string value, std::string label)
+    void int_astnode::generate_code()
+    {
+        std::cout << "\t"
+                  << "movl"
+                  << "\t"
+                  << "$" << value << ", " << R.top() << std::endl;
+    }
+
+    string_astnode::string_astnode(std::string value)
     {
         this->value = value;
-        this->label = label;
-        this->append_label(label+": \n\t.string "+value);
     }
-    void string_astnode::print_code()
+    std::vector<std::string> string_astnode::tree_traversal()
     {
-        std::cout << "$" << label;
+        std::vector<std::string> runtime_constants;
+        std::string instruction_label = get_new_instruction_label();
+        runtime_constants.push_back(instruction_label + ":\n" + "\t" + ".string" + "\t" + value);
+        label = 0;
+        reference = instruction_label;
+        return runtime_constants;
     }
+    void string_astnode::generate_code()
+    {
+        std::cout << "$" << reference;
+    }
+
     assignE_astnode::assignE_astnode(expression_astnode *left, expression_astnode *right)
     {
         this->left = left;
         this->right = right;
     }
-    void assignE_astnode::print_code()
+    std::vector<std::string> assignE_astnode::tree_traversal()
     {
-        //Assembly code for assignment
-        std::cout << "\t" << "movl \t";
-        right->print_code();
-        std::cout << ", ";
-        left->print_code();
-        std::cout << std::endl;
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> left_constants = left->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), left_constants.begin(), left_constants.end());
+        std::vector<std::string> right_constants = right->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), right_constants.begin(), right_constants.end());
+        label = std::max(left->get_label(), right->get_label());
+        return runtime_constants;
     }
+    void assignE_astnode::generate_code()
+    {
+        if (left->get_label() >= total_registers)
+        {
+            std::cout << "Error: left side of assignment is not a variable" << std::endl;
+        }
+        else
+        {
+            right->generate_code();
+            std::string reg = R.pop();
+            Address *addr = left->get_address();
+            if (addr != nullptr)
+            {
+                std::cout << "\t" << "movl" << "\t" << reg << ", " << addr << std::endl;
+            }
+            else
+            {
+                std::cout << "Error: left side of assignment is not a variable" << std::endl;
+            }
+            R.push(reg);
+        }
+    }
+
     funcall_astnode::funcall_astnode(identifier_astnode *name)
     {
         this->name = name;
@@ -214,82 +303,339 @@ namespace IPL
     {
         arguments.push_back(argument);
     }
-    void funcall_astnode::print_code()
+    std::vector<std::string> funcall_astnode::tree_traversal()
     {
-        std::cout << name << "(";
+        std::vector<std::string> runtime_constants;
         for (auto argument : arguments)
         {
-            argument->print_code();
-            std::cout << ", ";
+            std::vector<std::string> argument_constants = argument->tree_traversal();
+            runtime_constants.insert(runtime_constants.end(), argument_constants.begin(), argument_constants.end());
         }
-        std::cout << ")" << std::endl;
+        label = 0;
+        return runtime_constants;
     }
-    identifier_astnode::identifier_astnode(std::string name, int offset)
+    void funcall_astnode::generate_code()
     {
-        this->name = name;
-        this->offset = offset;
-    }
-    void identifier_astnode::print_code()
-    {
-        // Print offset from ebp
-        std::cout << offset << "(%ebp)";
+        std::cout << "funcall_astnode::generate_code()" << std::endl;
+        // for (auto argument : arguments)
+        // {
+        //     argument->generate_code();
+        // }
     }
 
-    member_astnode::member_astnode(expression_astnode *expression, identifier_astnode *name)
+    seq_astnode::seq_astnode()
+    {
+    }
+    void seq_astnode::add_statement(statement_astnode *statement)
+    {
+        statements.push_back(statement);
+    }
+    std::vector<std::string> seq_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        for (auto statement : statements)
+        {
+            std::vector<std::string> statement_constants = statement->tree_traversal();
+            runtime_constants.insert(runtime_constants.end(), statement_constants.begin(), statement_constants.end());
+        }
+        return runtime_constants;
+    }
+    void seq_astnode::generate_code()
+    {
+        for (auto statement : statements)
+        {
+            statement->generate_code();
+        }
+    }
+
+    empty_astnode::empty_astnode()
+    {
+    }
+    std::vector<std::string> empty_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        return runtime_constants;
+    }
+    void empty_astnode::generate_code()
+    {
+    }
+
+    assignS_astnode::assignS_astnode(expression_astnode *assignment_expression)
+    {
+        this->assignment_expression = assignment_expression;
+    }
+    std::vector<std::string> assignS_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> expression_constants = assignment_expression->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), expression_constants.begin(), expression_constants.end());
+        return runtime_constants;
+    }
+    void assignS_astnode::generate_code()
+    {
+        assignment_expression->generate_code();
+    }
+
+    if_astnode::if_astnode(expression_astnode *condition, statement_astnode *if_body, statement_astnode *else_body)
+    {
+        this->condition = condition;
+        this->if_body = if_body;
+        this->else_body = else_body;
+    }
+    std::vector<std::string> if_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> condition_constants = condition->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), condition_constants.begin(), condition_constants.end());
+        std::vector<std::string> if_body_constants = if_body->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), if_body_constants.begin(), if_body_constants.end());
+        if (else_body != NULL)
+        {
+            std::vector<std::string> else_body_constants = else_body->tree_traversal();
+            runtime_constants.insert(runtime_constants.end(), else_body_constants.begin(), else_body_constants.end());
+        }
+        return runtime_constants;
+    }
+    void if_astnode::generate_code()
+    {
+        std::cout << "if" << std::endl;
+        // std::string else_label = "else" + std::to_string(if_counter);
+        // std::string end_label = "end" + std::to_string(if_counter);
+        // if_counter++;
+        // condition->generate_code();
+        // std::cout << "\t" << "popl" << "\t" << "%eax" << std::endl;
+        // std::cout << "\t" << "cmpl" << "\t" << "$0" << ", " << "%eax" << std::endl;
+        // std::cout << "\t" << "je" << "\t" << else_label << std::endl;
+        // if_body->generate_code();
+        // std::cout << "\t" << "jmp" << "\t" << end_label << std::endl;
+        // std::cout << else_label << ":" << std::endl;
+        // if (else_body != NULL)
+        // {
+        //     else_body->generate_code();
+        // }
+        // std::cout << end_label << ":" << std::endl;
+    }
+
+    while_astnode::while_astnode(expression_astnode *condition, statement_astnode *body)
+    {
+        this->condition = condition;
+        this->body = body;
+    }
+    std::vector<std::string> while_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> condition_constants = condition->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), condition_constants.begin(), condition_constants.end());
+        std::vector<std::string> body_constants = body->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), body_constants.begin(), body_constants.end());
+        return runtime_constants;
+    }
+    void while_astnode::generate_code()
+    {
+        std::cout << "while" << std::endl;
+        // std::string start_label = "start" + std::to_string(while_counter);
+        // std::string end_label = "end" + std::to_string(while_counter);
+        // while_counter++;
+        // std::cout << start_label << ":" << std::endl;
+        // condition->generate_code();
+        // std::cout << "\t" << "popl" << "\t" << "%eax" << std::endl;
+        // std::cout << "\t" << "cmpl" << "\t" << "$0" << ", " << "%eax" << std::endl;
+        // std::cout << "\t" << "je" << "\t" << end_label << std::endl;
+        // body->generate_code();
+        // std::cout << "\t" << "jmp" << "\t" << start_label << std::endl;
+        // std::cout << end_label << ":" << std::endl;
+    }
+
+    for_astnode::for_astnode(assignE_astnode *init, expression_astnode *condition, assignE_astnode *step, statement_astnode *body)
+    {
+        this->init = init;
+        this->condition = condition;
+        this->step = step;
+        this->body = body;
+    }
+    std::vector<std::string> for_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> init_constants = init->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), init_constants.begin(), init_constants.end());
+        std::vector<std::string> condition_constants = condition->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), condition_constants.begin(), condition_constants.end());
+        std::vector<std::string> step_constants = step->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), step_constants.begin(), step_constants.end());
+        std::vector<std::string> body_constants = body->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), body_constants.begin(), body_constants.end());
+        return runtime_constants;
+    }
+    void for_astnode::generate_code()
+    {
+        std::cout << "for" << std::endl;
+        // std::string start_label = "start" + std::to_string(for_counter);
+        // std::string end_label = "end" + std::to_string(for_counter);
+        // for_counter++;
+        // init->generate_code();
+        // std::cout << start_label << ":" << std::endl;
+        // condition->generate_code();
+        // std::cout << "\t" << "popl" << "\t" << "%eax" << std::endl;
+        // std::cout << "\t" << "cmpl" << "\t" << "$0" << ", " << "%eax" << std::endl;
+        // std::cout << "\t" << "je" << "\t" << end_label << std::endl;
+        // body->generate_code();
+        // step->generate_code();
+        // std::cout << "\t" << "jmp" << "\t" << start_label << std::endl;
+        // std::cout << end_label << ":" << std::endl;
+    }
+
+    return_astnode::return_astnode(expression_astnode *expression, int local_var_size)
     {
         this->expression = expression;
+        this->local_var_size = local_var_size + 4;
+    }
+    std::vector<std::string> return_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        if (expression != NULL)
+        {
+            std::vector<std::string> expression_constants = expression->tree_traversal();
+            runtime_constants.insert(runtime_constants.end(), expression_constants.begin(), expression_constants.end());
+        }
+        return runtime_constants;
+    }
+    void return_astnode::generate_code()
+    {
+        // std::cout<<"return"<<std::endl;
+        if (expression != NULL)
+        {
+            expression->generate_code();
+            // std::cout << "\t" << "movl" << "\t" << R.top() << ", " << "%eax" << std::endl;
+        }
+        // std::cout << "\t" << "movl" << "\t" << "%ebp" << ", " << "%esp" << std::endl;
+        // std::cout << "\t" << "popl" << "\t" << "%ebp" << std::endl;
+        // std::cout << "\t" << "ret" << std::endl;
+        std::cout << "\t"
+                  << "addl"
+                  << "\t"
+                  << "$" << local_var_size << ", "
+                  << "%esp" << std::endl;
+    }
+
+    proccall_astnode::proccall_astnode(std::string name)
+    {
         this->name = name;
     }
-    void member_astnode::print_code()
+    void proccall_astnode::add_argument(expression_astnode *argument)
     {
-        expression->print_code();
-        std::cout << ".";
-        name->print_code();
+        arguments.push_back(argument);
     }
-    array_astnode::array_astnode(expression_astnode *expression, expression_astnode *index)
+    std::vector<std::string> proccall_astnode::tree_traversal()
     {
-        this->expression = expression;
-        this->index = index;
+        std::vector<std::string> runtime_constants;
+        for (auto argument : arguments)
+        {
+            std::vector<std::string> argument_constants = argument->tree_traversal();
+            runtime_constants.insert(runtime_constants.end(), argument_constants.begin(), argument_constants.end());
+        }
+        return runtime_constants;
     }
-    void array_astnode::print_code()
+    void proccall_astnode::generate_code()
     {
-        expression->print_code();
-        std::cout << "[";
-        index->print_code();
-        std::cout << "]";
+        std::cout << "proccall" << std::endl;
+        // std::cout << "\t" << "call" << "\t" << name << std::endl;
+        // std::cout << "\t" << "addl" << "\t" << "$" << arguments.size() * 4 << ", " << "%esp" << std::endl;
     }
-    arrow_astnode::arrow_astnode(expression_astnode *expression, identifier_astnode *name)
+
+    printf_astnode::printf_astnode(string_astnode *format)
     {
-        this->expression = expression;
-        this->name = name;
+        this->format = format;
     }
-    void arrow_astnode::print_code()
+    void printf_astnode::add_argument(expression_astnode *argument)
     {
-        expression->print_code();
-        std::cout << "->";
-        name->print_code();
+        arguments.push_back(argument);
     }
-    
-    compound_statement_astnode::compound_statement_astnode(seq_astnode *statements, int local_var_size)
+    std::vector<std::string> printf_astnode::tree_traversal()
+    {
+        std::vector<std::string> runtime_constants;
+        std::vector<std::string> format_constants = format->tree_traversal();
+        runtime_constants.insert(runtime_constants.end(), format_constants.begin(), format_constants.end());
+        for (auto argument : arguments)
+        {
+            std::vector<std::string> argument_constants = argument->tree_traversal();
+            runtime_constants.insert(runtime_constants.end(), argument_constants.begin(), argument_constants.end());
+        }
+        return runtime_constants;
+    }
+    void printf_astnode::generate_code()
+    {
+        for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
+        {
+            (*argument)->generate_code();
+            std::cout << "\t"
+                      << "pushl"
+                      << "\t" << R.top() << std::endl;
+        }
+        std::cout << "\t"
+                  << "pushl"
+                  << "\t";
+        format->generate_code();
+        std::cout << std::endl;
+        std::cout << "\t"
+                  << "call"
+                  << "\t"
+                  << "printf" << std::endl;
+    }
+
+    compound_statement::compound_statement(seq_astnode *statements, int local_var_size)
     {
         this->statements = statements;
         this->local_var_size = local_var_size;
-        append_label(statements->get_labels());
     }
-    void compound_statement_astnode::print_code()
+    void compound_statement::populate_runtime_constants()
     {
-        std::cout << "\t" << "pushl" << "\t" << "%ebp" << std::endl;
-        std::cout << "\t" << "movl" << "\t" << "%esp" << ", " << "%ebp" << std::endl;
-        
-        // Allocate space for local variables
-        std::cout << "\t" << "subl" << "\t" << "$" << local_var_size << ", " << "%esp" << std::endl;
-        
-        statements->print_code();
-        
-        std::cout << "\t" << "leave" << std::endl;
-        std::cout << "\t" << "ret" << std::endl;
+        runtime_constants = statements->tree_traversal();
     }
-    
+    void compound_statement::print_runtime_constants()
+    {
+        for (auto constant : runtime_constants)
+        {
+            std::cout << constant << std::endl;
+        }
+    }
+    void compound_statement::generate_code(std::string function_name)
+    {
+        std::cout << "\t"
+                  << ".globl " << function_name << std::endl;
+        std::cout << "\t"
+                  << ".type " << function_name << ", @function" << std::endl;
+        if (statements)
+        {
+            populate_runtime_constants();
+            print_runtime_constants();
+            std::cout << function_name << ":" << std::endl;
+            // Setup Activation Record
+            std::cout << "\t"
+                      << "pushl"
+                      << "\t"
+                      << "%ebp" << std::endl;
+            std::cout << "\t"
+                      << "movl"
+                      << "\t"
+                      << "%esp"
+                      << ", "
+                      << "%ebp" << std::endl;
+            // Allocate space for local variables
+            std::cout << "\t"
+                      << "subl"
+                      << "\t"
+                      << "$" << local_var_size << ", "
+                      << "%esp" << std::endl;
+            statements->generate_code();
+            // Restore Activation Record
+            std::cout << "\t"
+                      << "leave" << std::endl;
+            std::cout << "\t"
+                      << "ret" << std::endl;
+        }
+        std::cout << std::endl;
+    }
+
     expression_list::expression_list()
     {
     }

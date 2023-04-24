@@ -1,3 +1,4 @@
+// TODO: Sepereate address into cpp file
 #ifndef TYPE_HH
 #define TYPE_HH
 
@@ -76,12 +77,26 @@ namespace IPL
         void set_size(int size) { this->size = size; }
     };
 
+    class Address
+    {
+    private:
+        int offset;
+        std::string base;
+    public:
+        Address(int offset, std::string base) : offset(offset), base(base) {}
+        int get_offset() const { return offset; }
+        std::string get_base() const { return base; }
+        void set_offset(int offset) { this->offset = offset; }
+        void set_base(std::string reg) { this->base = base; }
+    };
+
     std::ostream &operator<<(std::ostream &strm, OP_Binary op);
     std::ostream &operator<<(std::ostream &strm, OP_Unary op);
     std::ostream &operator<<(std::ostream &strm, Scope scope);
     std::ostream &operator<<(std::ostream &strm, Category category);
     std::ostream &operator<<(std::ostream &strm, BaseType base_type);
     std::ostream &operator<<(std::ostream &strm, Type *type);
+    std::ostream &operator<<(std::ostream &strm, Address *address);
 
     Type *generate_type(Type *base_type, int stars, std::vector<int> arrays);
 }

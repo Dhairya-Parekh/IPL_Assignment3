@@ -156,6 +156,16 @@ namespace IPL
         }
         return strm;
     }
+    std::ostream &operator<<(std::ostream &strm, Address *address)
+    {
+        if(address->get_base() == "ebp")
+            strm << address->get_offset() << "(%ebp)";
+        else if(address->get_base() == "esp")
+            strm << address->get_offset() << "(%esp)";
+        else
+            strm << address->get_offset() << "(" << address->get_base() << ")" << std::endl;
+        return strm;
+    }
 
     Type* generate_type(Type* base_type, int stars, std::vector<int> arrays){
         Type* type = base_type;
