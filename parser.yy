@@ -79,6 +79,7 @@
       for(auto it = func_ast_map.begin(); it != func_ast_map.end(); it++) {
          if(it->second){
             it->second->generate_code(it->first);
+            std::cout << std::endl;
          }
       }
    }

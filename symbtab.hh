@@ -45,7 +45,7 @@ namespace IPL
         LST_Entry *getEntry(std::string name);
         bool contains(std::string name);
         int getTotalSize();
-        void print();
+        // void print();
     };
 
     class GST_Entry : public LST_Entry
@@ -69,7 +69,7 @@ namespace IPL
         bool addEntry(GST_Entry *entry);
         GST_Entry *getEntry(std::string name);
         bool contains(std::string name);
-        void print();
+        // void print();
     };
 
     class Declarator{

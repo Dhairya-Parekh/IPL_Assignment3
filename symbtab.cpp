@@ -58,14 +58,14 @@ namespace IPL
         }
         return total_size;
     }
-    void LST::print()
-    {
-        std::cout << "Name\tCategory\tScope\tType\tSize\tOffset" << std::endl;
-        for (auto entry : lst)
-        {
-            std::cout << entry->getName() << "\t" << entry->getCategory() << "\t" << entry->getScope() << "\t" << entry->getType() << "\t" << entry->getSize() << "\t" << entry->getOffset() << std::endl;
-        }
-    }
+    // void LST::print()
+    // {
+    //     std::cout << "Name\tCategory\tScope\tType\tSize\tOffset" << std::endl;
+    //     for (auto entry : lst)
+    //     {
+    //         std::cout << entry->getName() << "\t" << entry->getCategory() << "\t" << entry->getScope() << "\t" << entry->getType() << "\t" << entry->getSize() << "\t" << entry->getOffset() << std::endl;
+    //     }
+    // }
     
     GST_Entry::GST_Entry(std::string name, Category category, Scope scope, Type *type, int size, int offset, LST *lst) : LST_Entry(name, category, scope, type, size, offset), lst(lst) {}
     LST *GST_Entry::getLST() { return lst; }
@@ -103,20 +103,20 @@ namespace IPL
         }
         return false;
     }
-    void GST::print()
-    {
-        std::cout << "Global Symbol Table" << std::endl;
-        std::cout << "Name\tCategory\tScope\tType\tSize\tOffset" << std::endl;
-        for (auto entry : gst)
-        {
-            std::cout << entry->getName() << "\t" << entry->getCategory() << "\t" << entry->getScope() << "\t" << entry->getType() << "\t" << entry->getSize() << "\t" << entry->getOffset() << std::endl;
-        }
-        for (auto entry : gst)
-        {
-            std::cout << "\nLocal Symbol Table for " << entry->getName() << std::endl;
-            entry->getLST()->print();
-        }
-    }
+    // void GST::print()
+    // {
+    //     std::cout << "Global Symbol Table" << std::endl;
+    //     std::cout << "Name\tCategory\tScope\tType\tSize\tOffset" << std::endl;
+    //     for (auto entry : gst)
+    //     {
+    //         std::cout << entry->getName() << "\t" << entry->getCategory() << "\t" << entry->getScope() << "\t" << entry->getType() << "\t" << entry->getSize() << "\t" << entry->getOffset() << std::endl;
+    //     }
+    //     for (auto entry : gst)
+    //     {
+    //         std::cout << "\nLocal Symbol Table for " << entry->getName() << std::endl;
+    //         entry->getLST()->print();
+    //     }
+    // }
 
     Declarator::Declarator(std::string name) : name(name) { this->stars = 0; }
     std::string Declarator::getName() { return name; }

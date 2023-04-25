@@ -112,13 +112,20 @@ namespace IPL
         void set_base(std::string reg) { this->base = base; }
     };
 
-    std::ostream &operator<<(std::ostream &strm, OP_Binary op);
-    std::ostream &operator<<(std::ostream &strm, OP_Unary op);
-    std::ostream &operator<<(std::ostream &strm, Scope scope);
-    std::ostream &operator<<(std::ostream &strm, Category category);
-    std::ostream &operator<<(std::ostream &strm, BaseType base_type);
-    std::ostream &operator<<(std::ostream &strm, Type *type);
-    std::ostream &operator<<(std::ostream &strm, Address *address);
+    // std::ostream &operator<<(std::ostream &strm, OP_Binary op);
+    // std::ostream &operator<<(std::ostream &strm, OP_Unary op);
+    // std::ostream &operator<<(std::ostream &strm, Scope scope);
+    // std::ostream &operator<<(std::ostream &strm, Category category);
+    // std::ostream &operator<<(std::ostream &strm, BaseType base_type);
+    // std::ostream &operator<<(std::ostream &strm, Type *type);
+    // std::ostream &operator<<(std::ostream &strm, Address *address);
+    std::string to_string(OP_Binary op);
+    std::string to_string(OP_Unary op);
+    std::string to_string(Scope scope);
+    std::string to_string(Category category);
+    std::string to_string(BaseType base_type);
+    std::string to_string(Type *type);
+    std::string to_string(Address *address);
 
     Type *generate_type(Type *base_type, int stars, std::vector<int> arrays);
 }

@@ -145,6 +145,7 @@ namespace IPL
         string_astnode(std::string value);
         std::vector<std::string> tree_traversal();
         void generate_code();
+        std::string get_reference();
     };
     class assignE_astnode : public expression_astnode
     {
