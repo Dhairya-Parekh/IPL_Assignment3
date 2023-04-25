@@ -11,6 +11,7 @@ namespace IPL
     {
     protected:
         ASTNodeType node_type;
+
     public:
         virtual ~abstract_astnode() {}
         virtual std::vector<std::string> tree_traversal() = 0;
@@ -22,29 +23,31 @@ namespace IPL
     class statement_astnode : public abstract_astnode
     {
     protected:
-        std::string nextlist;
+        std::vector<int> nextlist;
+
     public:
         virtual ~statement_astnode() {}
-        std::string get_nextlist();
-        void set_nextlist(std::string nextlist);
+        std::vector<int> get_nextlist();
+        void set_nextlist(std::vector<int> nextlist);
     };
     class expression_astnode : public abstract_astnode
     {
     protected:
         int label;
         Address *address;
-        std::string truelist;
-        std::string falselist;
+        std::vector<int> truelist;
+        std::vector<int> falselist;
+
     public:
         virtual ~expression_astnode() {}
         int get_label();
         void set_label(int label);
         Address *get_address();
         void set_address(Address *address);
-        std::string get_truelist();
-        void set_truelist(std::string truelist);
-        std::string get_falselist();
-        void set_falselist(std::string falselist);
+        std::vector<int> get_truelist();
+        void set_truelist(std::vector<int> truelist);
+        std::vector<int> get_falselist();
+        void set_falselist(std::vector<int> falselist);
     };
     class reference_astnode : public expression_astnode
     {
@@ -152,6 +155,7 @@ namespace IPL
     private:
         expression_astnode *left;
         expression_astnode *right;
+
     public:
         assignE_astnode(expression_astnode *left, expression_astnode *right);
         std::vector<std::string> tree_traversal();
@@ -173,7 +177,8 @@ namespace IPL
     class seq_astnode : public statement_astnode
     {
     private:
-        std::vector<statement_astnode*> statements;
+        std::vector<statement_astnode *> statements;
+
     public:
         seq_astnode();
         void add_statement(statement_astnode *statement);
@@ -238,6 +243,7 @@ namespace IPL
     private:
         expression_astnode *expression;
         int local_var_size;
+
     public:
         return_astnode(expression_astnode *expression, int local_var_size);
         std::vector<std::string> tree_traversal();
@@ -267,20 +273,21 @@ namespace IPL
         std::vector<std::string> tree_traversal();
         void generate_code();
     };
-    
+
     class compound_statement
     {
     private:
-        seq_astnode* statements;
+        seq_astnode *statements;
         int local_var_size;
         std::vector<std::string> runtime_constants;
+
     public:
-        compound_statement(seq_astnode* statements, int local_var_size);
+        compound_statement(seq_astnode *statements, int local_var_size);
         void populate_runtime_constants();
         void print_runtime_constants();
         void generate_code(std::string function_name);
     };
-    
+
     class expression_list
     {
     private:
