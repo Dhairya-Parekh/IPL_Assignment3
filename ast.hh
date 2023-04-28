@@ -37,6 +37,7 @@ namespace IPL
         Address *address;
         std::vector<int> truelist;
         std::vector<int> falselist;
+        bool is_bool = false;
 
     public:
         virtual ~expression_astnode() {}
@@ -48,6 +49,9 @@ namespace IPL
         void set_truelist(std::vector<int> truelist);
         std::vector<int> get_falselist();
         void set_falselist(std::vector<int> falselist);
+        std::string to_arithmetic();
+        void to_boolean();
+        bool get_is_bool();
     };
     class reference_astnode : public expression_astnode
     {

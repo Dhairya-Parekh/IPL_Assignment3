@@ -80,6 +80,41 @@ namespace IPL
     {
         this->falselist = falselist;
     }
+    std::string expression_astnode::to_arithmetic(){
+        if(this->is_bool){
+            std::string M1 = get_new_instruction_label();
+            std::string M2 = get_new_instruction_label();
+            std::string M3 = get_new_instruction_label();
+            backpatch(this->truelist, M1);
+            backpatch(this->falselist, M2);
+            Code.push_back(M1+":");
+            Code.push_back("\tmovl\t$1, " + R.top());
+            Code.push_back("\tjmp\t\t" + M3);
+            Code.push_back(M2+":");
+            Code.push_back("\tmovl\t$0, " + R.top());
+            return M3;
+        }
+        else{
+            std::cout<<"Error: Expression is already arithmetic"<<std::endl;
+            return "";
+        }
+    }
+    void expression_astnode::to_boolean(){
+        if(!this->is_bool){
+            Code.push_back("\tcmpl\t$0, " + R.top());
+            this->truelist.push_back(nextinstr());
+            this->falselist.push_back(nextinstr()+1);
+            Code.push_back("\tjne\t");
+            Code.push_back("\tjmp\t");
+        }
+        else{
+            std::cout<<"Error: Expression is already boolean"<<std::endl;
+        }
+    }
+    bool expression_astnode::get_is_bool(){
+        return this->is_bool;
+    }
+
 
     identifier_astnode::identifier_astnode(std::string name, int offset)
     {
@@ -168,6 +203,28 @@ namespace IPL
         this->left = left;
         this->right = right;
         this->node_type = ASTNodeType::Op_binary;
+        switch (op)
+        {
+        case OP_Binary::OP_ADD:
+        case OP_Binary::OP_SUB:
+        case OP_Binary::OP_MUL:
+        case OP_Binary::OP_DIV:
+            this->is_bool = false;
+            break;
+        case OP_Binary::OP_LT:
+        case OP_Binary::OP_GT:
+        case OP_Binary::OP_LTE:
+        case OP_Binary::OP_GTE:
+        case OP_Binary::OP_EQ:
+        case OP_Binary::OP_NEQ:
+        case OP_Binary::OP_AND:
+        case OP_Binary::OP_OR:
+            this->is_bool = true;
+            break;
+        default: 
+            this->is_bool = false;
+            break;
+        }
     }
     std::vector<std::string> op_binary_astnode::tree_traversal()
     {
@@ -191,8 +248,16 @@ namespace IPL
             if (l_label >= total_registers && r_label >= total_registers)
             {
                 right->generate_code();
+                if(right->get_is_bool()){
+                    std::string M = right->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 Code.push_back("\tpushl\t" + R.top());
                 left->generate_code();
+                if(left->get_is_bool()){
+                    std::string M = left->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 std::string reg = R.pop();
                 Code.push_back("\tpopl\t" + R.top());
                 if (op == OP_Binary::OP_ADD)
@@ -208,8 +273,16 @@ namespace IPL
             else if (l_label >= total_registers && r_label < total_registers)
             {
                 left->generate_code();
+                if(left->get_is_bool()){
+                    std::string M = left->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 std::string reg = R.pop();
                 right->generate_code();
+                if(right->get_is_bool()){
+                    std::string M = right->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 if (op == OP_Binary::OP_ADD)
                     Code.push_back("\taddl\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_SUB)
@@ -224,8 +297,16 @@ namespace IPL
             {
                 R.swap();
                 right->generate_code();
+                if(right->get_is_bool()){
+                    std::string M = right->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 std::string reg = R.pop();
                 left->generate_code();
+                if(left->get_is_bool()){
+                    std::string M = left->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 if (op == OP_Binary::OP_ADD)
                     Code.push_back("\taddl\t" + reg + ", " + R.top());
                 else if (op == OP_Binary::OP_SUB)
@@ -240,8 +321,16 @@ namespace IPL
             else
             {
                 left->generate_code();
+                if(left->get_is_bool()){
+                    std::string M = left->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 std::string reg = R.pop();
                 right->generate_code();
+                if(right->get_is_bool()){
+                    std::string M = right->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 if (op == OP_Binary::OP_ADD)
                     Code.push_back("\taddl\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_SUB)
@@ -255,28 +344,32 @@ namespace IPL
         }
         else if (op == OP_Binary::OP_OR)
         {
-            // left->set_truelist(this->truelist);
-            // left->set_falselist(get_new_instruction_label());
-            // right->set_truelist(this->truelist);
-            // right->set_falselist(this->falselist);
             std::string M = get_new_instruction_label();
             left->generate_code();
+            if(!left->get_is_bool()){
+                left->to_boolean();
+            }
             Code.push_back(M + ":");
             right->generate_code();
+            if(!right->get_is_bool()){
+                right->to_boolean();
+            }
             backpatch(left->get_falselist(), M);
             this->set_truelist(merge(left->get_truelist(), right->get_truelist()));
             this->set_falselist(right->get_falselist());
         }
         else if (op == OP_Binary::OP_AND)
         {
-            // left->set_truelist(get_new_instruction_label());
-            // left->set_falselist(this->falselist);
-            // right->set_truelist(this->truelist);
-            // right->set_falselist(this->falselist);
             std::string M = get_new_instruction_label();
             left->generate_code();
+            if(!left->get_is_bool()){
+                left->to_boolean();
+            }
             Code.push_back(M + ":");
             right->generate_code();
+            if(!right->get_is_bool()){
+                right->to_boolean();
+            }
             backpatch(left->get_truelist(), M);
             this->set_truelist(right->get_truelist());
             this->set_falselist(merge(left->get_falselist(), right->get_falselist()));
@@ -289,8 +382,16 @@ namespace IPL
             if (l_label >= total_registers && r_label >= total_registers)
             {
                 right->generate_code();
+                if(right->get_is_bool()){
+                    std::string M = right->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 Code.push_back("\tpushl\t" + R.top());
                 left->generate_code();
+                if(left->get_is_bool()){
+                    std::string M = left->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 std::string reg = R.pop();
                 Code.push_back("\tpopl\t" + R.top());
                 Code.push_back("\tcmpl\t" + R.top() + ", " + reg);
@@ -299,8 +400,16 @@ namespace IPL
             else if (l_label >= total_registers && r_label < total_registers)
             {
                 left->generate_code();
+                if(left->get_is_bool()){
+                    std::string M = left->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 std::string reg = R.pop();
                 right->generate_code();
+                if(right->get_is_bool()){
+                    std::string M = right->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 Code.push_back("\tcmpl\t" + R.top() + ", " + reg);
                 R.push(reg);
             }
@@ -308,8 +417,16 @@ namespace IPL
             {
                 R.swap();
                 right->generate_code();
+                if(right->get_is_bool()){
+                    std::string M = right->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 std::string reg = R.pop();
                 left->generate_code();
+                if(left->get_is_bool()){
+                    std::string M = left->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 Code.push_back("\tcmpl\t" + reg + ", " + R.top());
                 R.push(reg);
                 R.swap();
@@ -317,8 +434,16 @@ namespace IPL
             else
             {
                 left->generate_code();
+                if(left->get_is_bool()){
+                    std::string M = left->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 std::string reg = R.pop();
                 right->generate_code();
+                if(right->get_is_bool()){
+                    std::string M = right->to_arithmetic();
+                    Code.push_back(M+":");
+                }
                 Code.push_back("\tcmpl\t" + R.top() + ", " + reg);
                 R.push(reg);
             }
@@ -343,6 +468,7 @@ namespace IPL
         {
             std::cout << "Error operation not handled yet" << std::endl;
         }
+        Code.push_back("");
     }
 
     op_unary_astnode::op_unary_astnode(expression_astnode *expression, OP_Unary op)
@@ -350,6 +476,15 @@ namespace IPL
         this->op = op;
         this->expression = expression;
         this->node_type = ASTNodeType::Op_unary;
+        switch (op)
+        {
+        case OP_Unary::OP_NOT:
+            this->is_bool = true;
+            break;
+        default:
+            this->is_bool = false;
+            break;
+        }
     }
     std::vector<std::string> op_unary_astnode::tree_traversal()
     {
@@ -455,6 +590,10 @@ namespace IPL
         else
         {
             right->generate_code();
+            if(right->get_is_bool()){
+                std::string M = right->to_arithmetic();
+                Code.push_back(M+":");
+            }
             std::string reg = R.pop();
             Address *addr = left->get_address();
             if (addr != nullptr)
@@ -532,6 +671,7 @@ namespace IPL
             {
                 statement->generate_code();
             }
+            Code.push_back("");
         }
     }
 
@@ -591,6 +731,9 @@ namespace IPL
         std::string M1 = get_new_instruction_label();
         std::string M2 = get_new_instruction_label();
         condition->generate_code();
+        if(!condition->get_is_bool()){
+            condition->to_boolean();
+        }
         Code.push_back(M1 + ":");
         if_body->generate_code();
         std::vector<int> temp = merge(if_body->get_nextlist(), std::vector<int>{nextinstr()});
@@ -623,9 +766,12 @@ namespace IPL
         std::string M2 = get_new_instruction_label();
         Code.push_back(M1 + ":");
         condition->generate_code();
+        if(!condition->get_is_bool()){
+            condition->to_boolean();
+        }
         Code.push_back(M2 + ":");
         body->generate_code();
-        Code.push_back("\tjmp\t\t"+M1);
+        Code.push_back("\tjmp\t\t" + M1);
         backpatch(condition->get_truelist(), M2);
         backpatch(body->get_nextlist(), M1);
         this->set_nextlist(condition->get_falselist());
@@ -660,11 +806,14 @@ namespace IPL
         init->generate_code();
         Code.push_back(M1 + ":");
         condition->generate_code();
+        if(!condition->get_is_bool()){
+            condition->to_boolean();
+        }
         Code.push_back(M2 + ":");
         body->generate_code();
         Code.push_back(M3 + ":");
         step->generate_code();
-        Code.push_back("\tjmp\t\t"+M1);
+        Code.push_back("\tjmp\t\t" + M1);
         backpatch(condition->get_truelist(), M2);
         backpatch(body->get_nextlist(), M3);
         this->set_nextlist(condition->get_falselist());
