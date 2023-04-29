@@ -279,9 +279,10 @@ namespace IPL
     private:
         string_astnode *format;
         std::vector<expression_astnode *> arguments;
+        int local_param_size;
 
     public:
-        printf_astnode(string_astnode *format);
+        printf_astnode(string_astnode *format, int local_param_size);
         void add_argument(expression_astnode *argument);
         std::vector<std::string> tree_traversal();
         void generate_code();

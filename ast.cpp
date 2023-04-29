@@ -153,7 +153,13 @@ namespace IPL
     }
     void identifier_astnode::generate_code()
     {
-        Code.push_back("\tmovl\t" + to_string(address) + ", " + R.top());
+        if(this->type->get_base_type() == BaseType::Int){
+            Code.push_back("\tmovl\t" + to_string(address) + ", " + R.top());
+        }
+        else if(this->type->get_base_type() == BaseType::Struct){
+            // Code.push_back("\tmovb\t" + to_string(address) + ", " + R.top());
+            // this->address
+        }
     }
 
     member_astnode::member_astnode(expression_astnode *expression, identifier_astnode *name)
@@ -161,6 +167,7 @@ namespace IPL
         this->expression = expression;
         this->name = name;
         this->node_type = ASTNodeType::Member;
+        this->address = new Address(expression->get_address()->get_offset() + name->get_address()->get_offset(), expression->get_address()->get_base());
     }
     std::vector<std::string> member_astnode::tree_traversal()
     {
@@ -172,7 +179,14 @@ namespace IPL
     }
     void member_astnode::generate_code()
     {
-        std::cout << "member_astnode::generate_code()" << std::endl;
+        // std::cout << "member_astnode::generate_code()" << std::endl;
+        if(this->type->get_base_type() == BaseType::Int){
+            Code.push_back("\tmovl\t" + to_string(address) + ", " + R.top());
+        }
+        else if(this->type->get_base_type() == BaseType::Struct){
+            // Code.push_back("\tmovb\t" + to_string(address) + ", " + R.top());
+            // this->address
+        }
         // expression->generate_code();
     }
 
@@ -637,17 +651,27 @@ namespace IPL
                 std::string M = right->to_arithmetic();
                 Code.push_back(M + ":");
             }
-            std::string reg = R.pop();
             Address *addr = left->get_address();
             if (addr != nullptr)
             {
-                Code.push_back("\tmovl\t" + reg + ", " + to_string(addr));
+                // Code.push_back("\tmovl\t" + R.top() + ", " + to_string(addr));
+                if(left->get_type()->get_base_type()==BaseType::Int){
+                    Code.push_back("\tmovl\t"+R.top()+", "+to_string(addr));
+                }
+                else if(left->get_type()->get_base_type()==BaseType::Struct){
+                    int size = left->get_type()->get_size();
+                    for(int i=0;i<size;i+=4){
+                        Code.push_back("\tmovl\t"+to_string(right->get_address())+", "+R.top());
+                        Code.push_back("\tmovl\t"+R.top()+", "+to_string(addr));
+                        right->get_address()->add_offset(4);
+                        addr->add_offset(4);
+                    }
+                }
             }
             else
             {
                 std::cout << "Error: left side of assignment is not a variable" << std::endl;
             }
-            R.push(reg);
         }
     }
 
@@ -676,9 +700,11 @@ namespace IPL
     {
         // Save registers
         std::vector<std::string> saved_registers = R.getCallerSaved();
+        int saved_regs = 0;
         for (auto reg = saved_registers.begin(); reg != saved_registers.end(); ++reg)
         {
             Code.push_back("\tpushl\t" + *reg);
+            saved_regs++;
         }
         // Make space for return value
         int return_size = this->get_type()->get_size();
@@ -691,7 +717,18 @@ namespace IPL
         Code.push_back("\tcall\t" + name);
         Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
         // Restore return value
-        Code.push_back("\tpopl\t" + R.top());
+        if(this->get_type()->get_base_type()==BaseType::Int){
+            Code.push_back("\tpopl\t" + R.top());
+        }
+        else if(this->get_type()->get_base_type()==BaseType::Struct){
+            // int size = this->get_type()->get_size();
+            // for(int i=0;i<size;i+=4){
+            //     Code.push_back("\tpopl\t" + R.top());
+            //     this->return_address->add_offset(4);
+            // }
+            Code.push_back("\taddl\t$" + std::to_string(return_size) + ", %esp");
+            this->address = new Address(-(saved_regs*4+return_size), "esp");
+        }
         // Restore registers
         for (auto reg = saved_registers.rbegin(); reg != saved_registers.rend(); ++reg)
         {
@@ -957,16 +994,27 @@ namespace IPL
         // Evaluate arguments in reverese and push into stack
         for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
         {
-            (*argument)->generate_code();
-            Code.push_back("\tpushl\t" + R.top());
+            if((*argument)->get_type()->get_base_type()==BaseType::Int){
+                (*argument)->generate_code();
+                Code.push_back("\tpushl\t" + R.top());
+            }
+            else if((*argument)->get_type()->get_base_type()==BaseType::Struct){
+                int size = (*argument)->get_type()->get_size();
+                for(int i=0;i<size;i+=4){
+                    Code.push_back("\tmovl\t"+to_string((*argument)->get_address())+", "+R.top());
+                    Code.push_back("\tpushl\t" + R.top());
+                    (*argument)->get_address()->add_offset(4);
+                }
+            }
         }
         Code.push_back("\tcall\t" + name);
         Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
     }
 
-    printf_astnode::printf_astnode(string_astnode *format)
+    printf_astnode::printf_astnode(string_astnode *format, int local_param_size)
     {
         this->format = format;
+        this->local_param_size = local_param_size;
         this->node_type = ASTNodeType::Printf;
     }
     void printf_astnode::add_argument(expression_astnode *argument)
@@ -995,6 +1043,7 @@ namespace IPL
         }
         Code.push_back("\tpushl\t$" + format->get_reference());
         Code.push_back("\tcall\tprintf");
+        Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
     }
 
     compound_statement::compound_statement(seq_astnode *statements, int local_var_size)

@@ -256,7 +256,7 @@ function_definition
       error(@1, "The function \"" + $2 + "\" has a previous defination");
    }
    current_lst = lst;
-   current_offset = 4;
+   current_offset = 8;
 } parameter_list {
    std::vector <Parameter*> parameters = $5->getParameters();
    for(unsigned int i = 0; i < parameters.size(); i++) {
@@ -265,7 +265,6 @@ function_definition
       if(type->get_base_type() == BaseType::Void) {
          error(@1, "The variable \"" + parameter->getName() + "\" cannot be of type void");
       }
-      current_offset += type->get_size();
       LST_Entry* lst_entry = new LST_Entry(
          parameter->getName(),
          Category::Variable,
@@ -274,13 +273,14 @@ function_definition
          type->get_size(),
          current_offset
       );
+      current_offset += type->get_size();
       bool success = current_lst->addEntry(lst_entry);
       if(!success) {
          error(@1, "The variable \"" + parameter->getName() + "\" has a previous declaration");
       }
    }
 } RRB {
-   return_offset = get_size_from_type($1) + current_offset;
+   return_offset = current_offset;
    current_offset = 0;
    current_category = Category::Function;
 } compound_statement {
@@ -766,12 +766,16 @@ procedure_call
 
 printf_call
 : PRINTF LRB CONSTANT_STRING RRB EOS {
-   $$ = new printf_astnode(new string_astnode($3)); 
+   $$ = new printf_astnode(new string_astnode($3),0); 
 }
 | PRINTF LRB CONSTANT_STRING COMMA expression_list RRB EOS { 
    // TODO: check if params and thier types are correct
-   $$ = new printf_astnode(new string_astnode($3));
    std::vector<expression_astnode*> expressions = $5->get_expressions();
+   int param_size = 0;
+   for (unsigned int i = 0; i < expressions.size(); i++) {
+      param_size += expressions[i]->get_type()->get_size();
+   }
+   $$ = new printf_astnode(new string_astnode($3),param_size);
    for (unsigned int i = 0; i < expressions.size(); i++) {
       $$->add_argument(expressions[i]);
    }
