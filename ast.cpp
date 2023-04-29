@@ -27,7 +27,23 @@ int nextinstr()
 {
     return Code.size();
 }
-
+void swap(std::string s1,std::string s2)
+{
+    // s1 to eax
+    if(s1 != "%eax")
+    {
+    Code.push_back("\txorl\t" + s1 + ", " +"%eax");
+    Code.push_back("\txorl\t%eax, " + s1);
+    Code.push_back("\txorl\t" + s1 + ", " +"%eax");
+    }
+    // s2 to edx
+    if(s2 != "%edx")
+    {
+    Code.push_back("\txorl\t" + s2 + ", " +"%edx");
+    Code.push_back("\txorl\t%edx, " + s2);
+    Code.push_back("\txorl\t" + s2 + ", " +"%edx");
+    }
+}
 namespace IPL
 {
     ASTNodeType abstract_astnode::get_type()
@@ -305,7 +321,15 @@ namespace IPL
                 else if (op == OP_Binary::OP_MUL)
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_DIV)
-                    Code.push_back("\tidivl\t" + R.top() + ", " + reg);
+                {
+                    // swap reg and eax, swap R.top and edx
+                    swap(reg,R.top());
+                    // divide
+                    Code.push_back("\tcltd");
+                    Code.push_back("\tidivl\t%edx");
+                    // swap reg and eax, swap R.top and edx
+                    swap(reg,R.top());
+                }
                 R.push(reg);
             }
             else if (l_label >= total_registers && r_label < total_registers)
@@ -329,8 +353,15 @@ namespace IPL
                     Code.push_back("\tsubl\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_MUL)
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_DIV)
-                    Code.push_back("\tidivl\t" + R.top() + ", " + reg);
+                else if (op == OP_Binary::OP_DIV){
+                    // swap reg and eax, swap R.top and edx
+                    swap(reg,R.top());
+                    // divide
+                    Code.push_back("\tcltd");
+                    Code.push_back("\tidivl\t%edx");
+                    // swap reg and eax, swap R.top and edx
+                    swap(reg,R.top());
+                }
                 R.push(reg);
             }
             else if (l_label < total_registers && r_label >= total_registers)
@@ -355,8 +386,15 @@ namespace IPL
                     Code.push_back("\tsubl\t" + reg + ", " + R.top());
                 else if (op == OP_Binary::OP_MUL)
                     Code.push_back("\timull\t" + reg + ", " + R.top());
-                else if (op == OP_Binary::OP_DIV)
-                    Code.push_back("\tidivl\t" + reg + ", " + R.top());
+                else if (op == OP_Binary::OP_DIV){
+                    // swap reg and eax, swap R.top and edx
+                    swap(R.top(),reg);
+                    // divide
+                    Code.push_back("\tcltd");
+                    Code.push_back("\tidivl\t%edx");
+                    // swap reg and eax, swap R.top and edx
+                    swap(R.top(),reg);
+                }
                 R.push(reg);
                 R.swap();
             }
@@ -381,8 +419,15 @@ namespace IPL
                     Code.push_back("\tsubl\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_MUL)
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_DIV)
-                    Code.push_back("\tidivl\t" + R.top() + ", " + reg);
+                else if (op == OP_Binary::OP_DIV){
+                    // swap reg and eax, swap R.top and edx
+                    swap(reg,R.top());
+                    // divide
+                    Code.push_back("\tcltd");
+                    Code.push_back("\tidivl\t%edx");
+                    // swap reg and eax, swap R.top and edx
+                    swap(reg,R.top());
+                }
                 R.push(reg);
             }
         }
@@ -711,8 +756,25 @@ namespace IPL
         Code.push_back("\tsubl\t$" + std::to_string(return_size) + ", %esp");
         for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
         {
-            (*argument)->generate_code();
-            Code.push_back("\tpushl\t" + R.top());
+            if((*argument)->get_type()->get_base_type()==BaseType::Int){
+                (*argument)->generate_code();
+                if ((*argument)->get_is_bool())
+                {
+                    std::string M = (*argument)->to_arithmetic();
+                    Code.push_back(M + ":");
+                }
+                Code.push_back("\tpushl\t" + R.top());
+            }
+            else if((*argument)->get_type()->get_base_type()==BaseType::Struct){
+                (*argument)->generate_code();
+                int size = (*argument)->get_type()->get_size();
+                (*argument)->get_address()->add_offset(size-4);
+                for(int i=0;i<size;i+=4){
+                    Code.push_back("\tmovl\t"+to_string((*argument)->get_address())+", "+R.top());
+                    Code.push_back("\tpushl\t" + R.top());
+                    (*argument)->get_address()->add_offset(-4);
+                }
+            }
         }
         Code.push_back("\tcall\t" + name);
         Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
@@ -772,6 +834,7 @@ namespace IPL
                 statement->generate_code();
             }
             Code.push_back("");
+            
         }
     }
 
@@ -949,10 +1012,14 @@ namespace IPL
     }
     void return_astnode::generate_code()
     {
-        // std::cout<<"return"<<std::endl;
         if (expression != NULL)
         {
             expression->generate_code();
+            if (expression->get_is_bool())
+            {
+                std::string M = expression->to_arithmetic();
+                Code.push_back(M + ":");
+            }
             if(expression->get_type()->get_base_type()==BaseType::Int){
                 Code.push_back("\tmovl\t"+R.top()+", "+to_string(this->return_address));
             }
@@ -968,11 +1035,12 @@ namespace IPL
         }
     }
 
-    proccall_astnode::proccall_astnode(std::string name, int local_param_size)
+    proccall_astnode::proccall_astnode(std::string name, int local_param_size, int return_size)
     {
         this->name = name;
         this->local_param_size = local_param_size;
         this->node_type = ASTNodeType::Proccall;
+        this->return_size = return_size;
     }
     void proccall_astnode::add_argument(expression_astnode *argument)
     {
@@ -991,24 +1059,34 @@ namespace IPL
     }
     void proccall_astnode::generate_code()
     {
+        // Make space for return value
+        Code.push_back("\tsubl\t$" + std::to_string(return_size) + ", %esp");
         // Evaluate arguments in reverese and push into stack
         for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
         {
             if((*argument)->get_type()->get_base_type()==BaseType::Int){
                 (*argument)->generate_code();
+                if ((*argument)->get_is_bool())
+                {
+                    std::string M = (*argument)->to_arithmetic();
+                    Code.push_back(M + ":");
+                }
                 Code.push_back("\tpushl\t" + R.top());
             }
             else if((*argument)->get_type()->get_base_type()==BaseType::Struct){
+                (*argument)->generate_code();
                 int size = (*argument)->get_type()->get_size();
+                (*argument)->get_address()->add_offset(size-4);
                 for(int i=0;i<size;i+=4){
                     Code.push_back("\tmovl\t"+to_string((*argument)->get_address())+", "+R.top());
                     Code.push_back("\tpushl\t" + R.top());
-                    (*argument)->get_address()->add_offset(4);
+                    (*argument)->get_address()->add_offset(-4);
                 }
             }
         }
         Code.push_back("\tcall\t" + name);
         Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
+        Code.push_back("\taddl\t$" + std::to_string(return_size) + ", %esp");
     }
 
     printf_astnode::printf_astnode(string_astnode *format, int local_param_size)
@@ -1039,6 +1117,11 @@ namespace IPL
         for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
         {
             (*argument)->generate_code();
+            if ((*argument)->get_is_bool())
+            {
+                std::string M = (*argument)->to_arithmetic();
+                Code.push_back(M + ":");
+            }
             Code.push_back("\tpushl\t" + R.top());
         }
         Code.push_back("\tpushl\t$" + format->get_reference());

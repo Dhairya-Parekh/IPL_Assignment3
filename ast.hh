@@ -267,9 +267,10 @@ namespace IPL
         std::string name;
         std::vector<expression_astnode *> arguments;
         int local_param_size;
+        int return_size;
 
     public:
-        proccall_astnode(std::string name, int local_param_size);
+        proccall_astnode(std::string name, int local_param_size, int return_size);
         void add_argument(expression_astnode *argument);
         std::vector<std::string> tree_traversal();
         void generate_code();

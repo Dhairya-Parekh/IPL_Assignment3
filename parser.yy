@@ -233,6 +233,7 @@ function_definition
    }
    current_lst = lst;
    current_offset = 0;
+   return_offset = 8;
    current_category = Category::Function;
 } compound_statement {
    func_ast_map[$2] = $6;
@@ -752,12 +753,12 @@ iteration_statement
 procedure_call
 : IDENTIFIER LRB RRB EOS { 
    GST_Entry* entry = gst->getEntry($1);
-   $$ = new proccall_astnode($1, entry->getLST()->getLocalParamSize());
+   $$ = new proccall_astnode($1, entry->getLST()->getLocalParamSize(),entry->getType()->get_size());
 }
 | IDENTIFIER LRB expression_list RRB EOS { 
    // TODO: check if params and thier types are correct
    GST_Entry* entry = gst->getEntry($1);
-   $$ = new proccall_astnode($1, entry->getLST()->getLocalParamSize());
+   $$ = new proccall_astnode($1, entry->getLST()->getLocalParamSize(),entry->getType()->get_size());
    std::vector<expression_astnode*> expressions = $3->get_expressions();
    for (unsigned int i = 0; i < expressions.size(); i++) {
       $$->add_argument(expressions[i]);
