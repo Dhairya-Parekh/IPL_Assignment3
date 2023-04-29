@@ -57,3 +57,54 @@ void RegisterStack::swap()
     registers.push(reg1);
     registers.push(reg2);
 }
+
+std::vector<std::string> RegisterStack::getCallerSaved()
+{
+    std::vector<std::string> callerSaved;
+    if(registers.top() == "%eax")
+    {
+        return callerSaved;
+    }
+    else if(registers.top() == "%ecx"){
+        callerSaved.push_back("%eax");
+        return callerSaved;
+    }
+    else if(registers.top() == "%edx"){
+        callerSaved.push_back("%eax");
+        callerSaved.push_back("%ecx");
+        return callerSaved;
+    }
+    else{
+        callerSaved.push_back("%eax");
+        callerSaved.push_back("%ecx");
+        callerSaved.push_back("%edx");
+        return callerSaved;
+    }
+}
+
+std::vector<std::string> RegisterStack::getCalleeSaved(int label){
+    int num = std::min(std::max(label-6,0),3);
+    std::vector<std::string> calleeSaved;
+    if(num == 0){
+        return calleeSaved;
+    }
+    else if(num == 1){
+        calleeSaved.push_back("%ebx");
+        return calleeSaved;
+    }
+    else if(num == 2){
+        calleeSaved.push_back("%ebx");
+        calleeSaved.push_back("%esi");
+        return calleeSaved;
+    }
+    else if(num == 3){
+        calleeSaved.push_back("%ebx");
+        calleeSaved.push_back("%esi");
+        calleeSaved.push_back("%edi");
+        return calleeSaved;
+    }
+    else{
+        std::cout << "Error: Invalid number of callee saved registers" << std::endl;
+        return calleeSaved;
+    }
+}

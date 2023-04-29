@@ -49,24 +49,35 @@ namespace IPL
         }
         return false;
     }
-    int LST::getTotalSize()
+    int LST::getLocalVarSize()
     {
         int total_size = 0;
         for (auto entry : lst)
         {
-            total_size += entry->getSize();
+            if (entry->getScope() == Scope::Local)
+                total_size += entry->getSize();
         }
         return total_size;
     }
-    // void LST::print()
-    // {
-    //     std::cout << "Name\tCategory\tScope\tType\tSize\tOffset" << std::endl;
-    //     for (auto entry : lst)
-    //     {
-    //         std::cout << entry->getName() << "\t" << entry->getCategory() << "\t" << entry->getScope() << "\t" << entry->getType() << "\t" << entry->getSize() << "\t" << entry->getOffset() << std::endl;
-    //     }
-    // }
-    
+    int LST::getLocalParamSize()
+    {
+        int total_size = 0;
+        for (auto entry : lst)
+        {
+            if (entry->getScope() == Scope::Param)
+                total_size += entry->getSize();
+        }
+        return total_size;
+    }
+    void LST::print()
+    {
+        std::cout << "Name\tCategory\tScope\tType\tSize\tOffset" << std::endl;
+        for (auto entry : lst)
+        {
+            std::cout << entry->getName() << "\t" << to_string(entry->getCategory()) << "\t" << to_string(entry->getScope()) << "\t" << to_string(entry->getType()) << "\t" << entry->getSize() << "\t" << entry->getOffset() << std::endl;
+        }
+    }
+
     GST_Entry::GST_Entry(std::string name, Category category, Scope scope, Type *type, int size, int offset, LST *lst) : LST_Entry(name, category, scope, type, size, offset), lst(lst) {}
     LST *GST_Entry::getLST() { return lst; }
     void GST_Entry::setLST(LST *lst) { this->lst = lst; }
@@ -103,20 +114,20 @@ namespace IPL
         }
         return false;
     }
-    // void GST::print()
-    // {
-    //     std::cout << "Global Symbol Table" << std::endl;
-    //     std::cout << "Name\tCategory\tScope\tType\tSize\tOffset" << std::endl;
-    //     for (auto entry : gst)
-    //     {
-    //         std::cout << entry->getName() << "\t" << entry->getCategory() << "\t" << entry->getScope() << "\t" << entry->getType() << "\t" << entry->getSize() << "\t" << entry->getOffset() << std::endl;
-    //     }
-    //     for (auto entry : gst)
-    //     {
-    //         std::cout << "\nLocal Symbol Table for " << entry->getName() << std::endl;
-    //         entry->getLST()->print();
-    //     }
-    // }
+    void GST::print()
+    {
+        std::cout << "Global Symbol Table" << std::endl;
+        std::cout << "Name\tCategory\tScope\tType\tSize\tOffset" << std::endl;
+        for (auto entry : gst)
+        {
+            std::cout << entry->getName() << "\t" << to_string(entry->getCategory()) << "\t" << to_string(entry->getScope()) << "\t" << to_string(entry->getType()) << "\t" << entry->getSize() << "\t" << entry->getOffset() << std::endl;
+        }
+        for (auto entry : gst)
+        {
+            std::cout << "\nLocal Symbol Table for " << entry->getName() << std::endl;
+            entry->getLST()->print();
+        }
+    }
 
     Declarator::Declarator(std::string name) : name(name) { this->stars = 0; }
     std::string Declarator::getName() { return name; }
@@ -135,6 +146,6 @@ namespace IPL
     std::string Parameter::getName() { return name; }
 
     ParameterList::ParameterList() {}
-    void ParameterList::addParameter(Parameter *parameter) { parameters.push(parameter); }
-    std::stack<Parameter *> ParameterList::getParameters() { return parameters; }
+    void ParameterList::addParameter(Parameter *parameter) { parameters.push_back(parameter); }
+    std::vector<Parameter *> ParameterList::getParameters() { return parameters; }
 }

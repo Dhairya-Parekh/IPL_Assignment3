@@ -5,17 +5,12 @@ struct A
     int z;
 };
 
-int f(int a, int b){
+struct A f(struct A a){
     struct A d;
-    a = b;
-    b = a;
-    // return d;
-    return 34;
+    return d;
 }
 int main(){
-    int x;
     struct A y;
-    x = 12;
-    x = f(12, 56);
+    y = f(y);
     return 0;
 }

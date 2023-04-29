@@ -11,6 +11,7 @@ namespace IPL
     {
     protected:
         ASTNodeType node_type;
+        int label;
 
     public:
         virtual ~abstract_astnode() {}
@@ -18,6 +19,8 @@ namespace IPL
         virtual void generate_code() = 0;
         ASTNodeType get_type();
         void set_type(ASTNodeType type);
+        int get_label();
+        void set_label(int label);
     };
 
     class statement_astnode : public abstract_astnode
@@ -33,16 +36,15 @@ namespace IPL
     class expression_astnode : public abstract_astnode
     {
     protected:
-        int label;
         Address *address;
         std::vector<int> truelist;
         std::vector<int> falselist;
         bool is_bool = false;
+        Type *type;
+        bool is_lvalue;
 
     public:
         virtual ~expression_astnode() {}
-        int get_label();
-        void set_label(int label);
         Address *get_address();
         void set_address(Address *address);
         std::vector<int> get_truelist();
@@ -52,6 +54,11 @@ namespace IPL
         std::string to_arithmetic();
         void to_boolean();
         bool get_is_bool();
+        bool get_is_lvalue();
+        void set_is_lvalue(bool is_lvalue);
+        Type *get_type();
+        void set_type(Type *type);
+
     };
     class reference_astnode : public expression_astnode
     {
@@ -168,11 +175,12 @@ namespace IPL
     class funcall_astnode : public expression_astnode
     {
     private:
-        identifier_astnode *name;
+        std::string name;
         std::vector<expression_astnode *> arguments;
+        int local_param_size;
 
     public:
-        funcall_astnode(identifier_astnode *name);
+        funcall_astnode(std::string name, int local_param_size);
         void add_argument(expression_astnode *argument);
         std::vector<std::string> tree_traversal();
         void generate_code();
@@ -246,10 +254,10 @@ namespace IPL
     {
     private:
         expression_astnode *expression;
-        int local_var_size;
+        Address* return_address;
 
     public:
-        return_astnode(expression_astnode *expression, int local_var_size);
+        return_astnode(expression_astnode *expression, int return_value_offset);
         std::vector<std::string> tree_traversal();
         void generate_code();
     };
@@ -258,9 +266,10 @@ namespace IPL
     private:
         std::string name;
         std::vector<expression_astnode *> arguments;
+        int local_param_size;
 
     public:
-        proccall_astnode(std::string name);
+        proccall_astnode(std::string name, int local_param_size);
         void add_argument(expression_astnode *argument);
         std::vector<std::string> tree_traversal();
         void generate_code();
@@ -284,6 +293,7 @@ namespace IPL
         seq_astnode *statements;
         int local_var_size;
         std::vector<std::string> runtime_constants;
+        int label;
 
     public:
         compound_statement(seq_astnode *statements, int local_var_size);

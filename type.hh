@@ -110,6 +110,7 @@ namespace IPL
         std::string get_base() const { return base; }
         void set_offset(int offset) { this->offset = offset; }
         void set_base(std::string reg) { this->base = base; }
+        void add_offset(int offset) { this->offset += offset; }
     };
 
     // std::ostream &operator<<(std::ostream &strm, OP_Binary op);
@@ -128,5 +129,9 @@ namespace IPL
     std::string to_string(Address *address);
 
     Type *generate_type(Type *base_type, int stars, std::vector<int> arrays);
+    Type *are_compatible(Type *type1, Type *type2, OP_Binary op);
+    Type *are_compatible(Type *type, OP_Unary op);
+    Type *are_compatible(Type *type1, Type *type2);
+    int   get_size_from_type(Type *type);
 }
 #endif

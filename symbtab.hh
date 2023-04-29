@@ -44,8 +44,9 @@ namespace IPL
         bool addEntry(LST_Entry *entry);
         LST_Entry *getEntry(std::string name);
         bool contains(std::string name);
-        int getTotalSize();
-        // void print();
+        int getLocalVarSize();
+        int getLocalParamSize();
+        void print();
     };
 
     class GST_Entry : public LST_Entry
@@ -69,7 +70,7 @@ namespace IPL
         bool addEntry(GST_Entry *entry);
         GST_Entry *getEntry(std::string name);
         bool contains(std::string name);
-        // void print();
+        void print();
     };
 
     class Declarator{
@@ -108,11 +109,11 @@ namespace IPL
 
     class ParameterList{
         private:
-            std::stack<Parameter*> parameters;
+            std::vector<Parameter*> parameters;
         public:
             ParameterList();
             void addParameter(Parameter* parameter);
-            std::stack<Parameter*> getParameters();
+            std::vector<Parameter*> getParameters();
     };
 }
 #endif

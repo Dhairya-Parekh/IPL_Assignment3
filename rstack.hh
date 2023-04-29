@@ -2,6 +2,7 @@
 #define RS_HH
 
 #include <stack>
+#include <vector>
 #include <string>
 
 class RegisterStack{
@@ -14,6 +15,8 @@ public:
     std::string top();
     int size();
     void swap();
+    std::vector<std::string> getCallerSaved();
+    std::vector<std::string> getCalleeSaved(int num);
 };
 
 #endif

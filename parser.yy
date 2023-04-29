@@ -73,6 +73,7 @@
    GST* gst = new GST();
    LST* current_lst = NULL;
    int current_offset = 0;
+   int return_offset = 0;
    std::map<std::string, compound_statement*> func_ast_map;
    Category current_category = Category::Const;
    void generate_code(){
@@ -172,8 +173,14 @@
 %%
 
 program
-: main_definition {generate_code();}
-| translation_unit main_definition{generate_code();}
+: main_definition {
+   // gst->print();
+   generate_code();
+}
+| translation_unit main_definition{
+   // gst->print();
+   generate_code();
+}
 
 translation_unit
 : struct_specifier 
@@ -202,7 +209,7 @@ struct_specifier
    current_category = Category::Struct;
 } LCB declaration_list RCB EOS {
    GST_Entry* gst_entry = gst->getEntry($1+" "+$2);
-   gst_entry->setSize(gst_entry->getLST()->getTotalSize());
+   gst_entry->setSize(gst_entry->getLST()->getLocalVarSize());
    current_lst = NULL;
    current_offset = 0;
    current_category = Category::Const;
@@ -249,16 +256,16 @@ function_definition
       error(@1, "The function \"" + $2 + "\" has a previous defination");
    }
    current_lst = lst;
-   current_offset = 12;
+   current_offset = 4;
 } parameter_list {
-   std::stack <Parameter*> parameter_stack = $5->getParameters();
-   while(!parameter_stack.empty()) {
-      Parameter* parameter = parameter_stack.top();
-      parameter_stack.pop();
+   std::vector <Parameter*> parameters = $5->getParameters();
+   for(unsigned int i = 0; i < parameters.size(); i++) {
+      Parameter* parameter = parameters[i];
       Type* type = parameter->getType();
       if(type->get_base_type() == BaseType::Void) {
          error(@1, "The variable \"" + parameter->getName() + "\" cannot be of type void");
       }
+      current_offset += type->get_size();
       LST_Entry* lst_entry = new LST_Entry(
          parameter->getName(),
          Category::Variable,
@@ -271,9 +278,9 @@ function_definition
       if(!success) {
          error(@1, "The variable \"" + parameter->getName() + "\" has a previous declaration");
       }
-      current_offset += type->get_size();
    }
 } RRB {
+   return_offset = get_size_from_type($1) + current_offset;
    current_offset = 0;
    current_category = Category::Function;
 } compound_statement {
@@ -413,7 +420,7 @@ compound_statement
    $$ = new compound_statement($2, 0);
 }
 | LCB declaration_list statement_list RCB { 
-   int size = current_lst->getTotalSize();
+   int size = current_lst->getLocalVarSize();
    $$ = new compound_statement($3, size); 
 }
 
@@ -437,37 +444,74 @@ statement
 | printf_call { $$ = $1; }
 | RETURN expression EOS { 
    // TODO: check if return type is correct 
-   int size = current_lst->getTotalSize();
-   $$ = new return_astnode($2, size);
+   $$ = new return_astnode($2, return_offset);
 }
 
 assignment_expression
 : unary_expression OP_ASSIGN expression { 
    // TODO: check if types are correct
-   $$ = new assignE_astnode($1, $3); 
+   if($1->get_is_lvalue()) {
+      if($1->get_type()->get_base_type() == BaseType::Void) {
+         error(@1, "Cannot assign to a variable of type void");
+      }
+      else if (are_compatible($1->get_type(), $3->get_type()) == nullptr) {
+         error(@1, "The types of the operands of the operator \"=\" are not compatible");
+      }
+      $$ = new assignE_astnode($1, $3); 
+      $$->set_type(new Type(BaseType::Null));
+      $$->set_is_lvalue(false);
+   }
+   else{
+      error(@1, "Cannot assign to a non-lvalue");
+   }
 }
 
 expression
 : logical_and_expression { $$ = $1; }
 | expression OP_OR logical_and_expression { 
-   $$ = new op_binary_astnode($1, $3, OP_Binary::OP_OR); 
+   $$ = new op_binary_astnode($1, $3, OP_Binary::OP_OR);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_OR);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"||\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false); 
 }
 
 logical_and_expression
 : equality_expression { $$ = $1; }
 | logical_and_expression OP_AND equality_expression { 
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_AND); 
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_AND);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"&&\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 
 equality_expression
 : relational_expression { $$ = $1; }
 | equality_expression OP_EQ relational_expression { 
    // TODO: check if types are correct
-   $$ = new op_binary_astnode($1, $3, OP_Binary::OP_EQ); 
+   $$ = new op_binary_astnode($1, $3, OP_Binary::OP_EQ);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_EQ);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"==\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
+
 }
 | equality_expression OP_NEQ relational_expression {
    // TODO: check if types are correct
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_NEQ);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_NEQ);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"!=\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 
 relational_expression
@@ -475,18 +519,42 @@ relational_expression
 | relational_expression OP_LT additive_expression {
    // TODO: check if types are correct
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_LT);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_LT);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"<\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 | relational_expression OP_GT additive_expression {
    // TODO: check if types are correct
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_GT);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_GT);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \">\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 | relational_expression OP_LTE additive_expression {
    // TODO: check if types are correct
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_LTE);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_LTE);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"<=\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 | relational_expression OP_GTE additive_expression {
    // TODO: check if types are correct
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_GTE);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_GTE);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \">=\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 
 additive_expression
@@ -494,10 +562,22 @@ additive_expression
 | additive_expression OP_ADD multiplicative_expression {
    // TODO: check if types are correct
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_ADD);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_ADD);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"+\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 | additive_expression OP_SUB multiplicative_expression {
    // TODO: check if types are correct
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_SUB);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_SUB);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"-\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 
 multiplicative_expression
@@ -505,10 +585,22 @@ multiplicative_expression
 | multiplicative_expression OP_MUL unary_expression {
    // TODO: check if types are correct
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_MUL);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_MUL);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"*\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 | multiplicative_expression OP_DIV unary_expression {
    // TODO: check if types are correct
    $$ = new op_binary_astnode($1, $3, OP_Binary::OP_DIV);
+   Type* compatible_type = are_compatible($1->get_type(), $3->get_type(), OP_Binary::OP_DIV);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"/\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 
 unary_expression
@@ -516,6 +608,19 @@ unary_expression
 | unary_operator unary_expression {
    // TODO: check if types are correct
    $$ = new op_unary_astnode($2, $1);
+   Type* compatible_type = are_compatible($2->get_type(), $1);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"-\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   switch($1) {
+      case OP_Unary::OP_MUL:
+         $$->set_is_lvalue(true);
+         break;
+      default:
+         $$->set_is_lvalue(false);
+         break;
+   }
 }
 
 postfix_expression
@@ -523,44 +628,105 @@ postfix_expression
 | postfix_expression OP_INC { 
    // TODO: check if types are correct
    $$ = new op_unary_astnode($1, OP_Unary::OP_INC);
+   Type* compatible_type = are_compatible($1->get_type(), OP_Unary::OP_INC);
+   if(compatible_type == nullptr) {
+      error(@1, "The types of the operands of the operator \"++\" are not compatible");
+   }
+   $$->set_type(compatible_type);
+   $$->set_is_lvalue(false);
 }
 | IDENTIFIER LRB RRB {
    // TODO: check if params are correct
-   $$ = new funcall_astnode(new identifier_astnode($1, 0));
+   GST_Entry* entry = gst->getEntry($1);
+   if(entry == nullptr) {
+      error(@1, "The function \"" + $1 + "\" is not declared");
+   }
+   $$ = new funcall_astnode($1,entry->getLST()->getLocalParamSize());
+   $$->set_type(entry->getType());
+   $$->set_is_lvalue(false);
 }
 | IDENTIFIER LRB expression_list RRB {
    // TODO: check if params and thier types are correct
-   funcall_astnode* output = new funcall_astnode(new identifier_astnode($1, 0));
    std::vector<expression_astnode*> expressions = $3->get_expressions();
+   GST_Entry* entry = gst->getEntry($1);
+   funcall_astnode* output = new funcall_astnode($1,entry->getLST()->getLocalParamSize());
+   if(entry == nullptr) {
+      error(@1, "The function \"" + $1 + "\" is not declared");
+   }
    for (unsigned int i = 0; i < expressions.size(); i++) {
       output->add_argument(expressions[i]);
    }
    $$ = output;
+   $$->set_type(entry->getType());
+   $$->set_is_lvalue(false);
 }
 | postfix_expression OP_MEM IDENTIFIER {
    // TODO: check if types are correct
    // TODO: check if identifier is declared and offset is correct
-   $$ = new member_astnode($1, new identifier_astnode($3, 0));
+   if($1->get_type()->get_base_type() != BaseType::Struct) {
+      error(@1, "The type of the operand of the operator \".\" is not a struct");
+   }
+   GST_Entry* entry = gst->getEntry($1->get_type()->get_name());
+   if(entry == nullptr) {
+      error(@1, "The struct \"" + $1->get_type()->get_name() + "\" is not declared");
+   }
+   LST_Entry* member = entry->getLST()->getEntry($3);
+   if(member == nullptr) {
+      error(@1, "The member \"" + $3 + "\" is not declared");
+   }
+   $$ = new member_astnode($1, new identifier_astnode($3, member->getOffset()));
+   $$->set_type(member->getType());
+   $$->set_is_lvalue($1->get_is_lvalue());
 }
 | postfix_expression OP_PTR IDENTIFIER {
    // TODO: check if types are correct
    // TODO: check if identifier is declared and offset is correct
-   $$ = new arrow_astnode($1, new identifier_astnode($3, 0));
+   if($1->get_type()->get_base_type() == BaseType::Pointer && $1->get_type()->get_sub_type()->get_base_type() == BaseType::Struct) {
+      GST_Entry* entry = gst->getEntry($1->get_type()->get_name());
+      if(entry == nullptr) {
+         error(@1, "The struct \"" + $1->get_type()->get_name() + "\" is not declared");
+      }
+      LST_Entry* member = entry->getLST()->getEntry($3);
+      if(member == nullptr) {
+         error(@1, "The member \"" + $3 + "\" is not declared");
+      }
+      $$ = new arrow_astnode($1, new identifier_astnode($3, member->getOffset()));
+      $$->set_type(member->getType());
+      $$->set_is_lvalue($1->get_is_lvalue());
+   }
+   else{
+      error(@1, "The type of the operand of the operator \"->\" is not a struct");
+   }
 }
 | postfix_expression LSB expression RSB {
    // TODO: check if types are correct
+   if($1->get_type()->get_base_type() != BaseType::Array && $1->get_type()->get_base_type() != BaseType::Pointer) {
+      error(@1, "The type of the operand of the operator \"[]\" is not an array or a pointer");
+   }
+   if($3->get_type()->get_base_type() != BaseType::Int) {
+      error(@1, "The type of the index of the operator \"[]\" is not an int");
+   }
    $$ = new array_astnode($1, $3);
+   $$->set_type($1->get_type()->get_sub_type());
+   $$->set_is_lvalue(true);
 }
 
 primary_expression
 : IDENTIFIER {
    // TODO: check if identifier is declared
    LST_Entry* entry = current_lst->getEntry($1);
+   if(entry == nullptr) {
+      error(@1, "The identifier \"" + $1 + "\" is not declared");
+   }
    int offset = entry->getOffset();
    $$ = new identifier_astnode($1, offset);
+   $$->set_type(entry->getType());
+   $$->set_is_lvalue(true);
 }
 | CONSTANT_INT {
    $$ = new int_astnode(stoi($1));
+   $$->set_type(new Type(BaseType::Int));
+   $$->set_is_lvalue(false);
 }
 | LRB expression RRB { $$ = $2; }
 
@@ -584,10 +750,14 @@ iteration_statement
 }
 
 procedure_call
-: IDENTIFIER LRB RRB EOS { $$ = new proccall_astnode($1); }
+: IDENTIFIER LRB RRB EOS { 
+   GST_Entry* entry = gst->getEntry($1);
+   $$ = new proccall_astnode($1, entry->getLST()->getLocalParamSize());
+}
 | IDENTIFIER LRB expression_list RRB EOS { 
    // TODO: check if params and thier types are correct
-   $$ = new proccall_astnode($1); 
+   GST_Entry* entry = gst->getEntry($1);
+   $$ = new proccall_astnode($1, entry->getLST()->getLocalParamSize());
    std::vector<expression_astnode*> expressions = $3->get_expressions();
    for (unsigned int i = 0; i < expressions.size(); i++) {
       $$->add_argument(expressions[i]);
