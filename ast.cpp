@@ -27,21 +27,14 @@ int nextinstr()
 {
     return Code.size();
 }
-void swap(std::string s1,std::string s2)
+void swap(std::string s1, std::string s2)
 {
-    // s1 to eax
-    if(s1 != "%eax")
+    // s1 to s2
+    if (s1 != s2)
     {
-    Code.push_back("\txorl\t" + s1 + ", " +"%eax");
-    Code.push_back("\txorl\t%eax, " + s1);
-    Code.push_back("\txorl\t" + s1 + ", " +"%eax");
-    }
-    // s2 to edx
-    if(s2 != "%edx")
-    {
-    Code.push_back("\txorl\t" + s2 + ", " +"%edx");
-    Code.push_back("\txorl\t%edx, " + s2);
-    Code.push_back("\txorl\t" + s2 + ", " +"%edx");
+        Code.push_back("\txorl\t" + s1 + ", " + s2);
+        Code.push_back("\txorl\t" + s2+ ", " + s1);
+        Code.push_back("\txorl\t" + s1 + ", " + s2);
     }
 }
 namespace IPL
@@ -169,10 +162,12 @@ namespace IPL
     }
     void identifier_astnode::generate_code()
     {
-        if(this->type->get_base_type() == BaseType::Int){
+        if (this->type->get_base_type() == BaseType::Int)
+        {
             Code.push_back("\tmovl\t" + to_string(address) + ", " + R.top());
         }
-        else if(this->type->get_base_type() == BaseType::Struct){
+        else if (this->type->get_base_type() == BaseType::Struct)
+        {
             // Code.push_back("\tmovb\t" + to_string(address) + ", " + R.top());
             // this->address
         }
@@ -196,10 +191,12 @@ namespace IPL
     void member_astnode::generate_code()
     {
         // std::cout << "member_astnode::generate_code()" << std::endl;
-        if(this->type->get_base_type() == BaseType::Int){
+        if (this->type->get_base_type() == BaseType::Int)
+        {
             Code.push_back("\tmovl\t" + to_string(address) + ", " + R.top());
         }
-        else if(this->type->get_base_type() == BaseType::Struct){
+        else if (this->type->get_base_type() == BaseType::Struct)
+        {
             // Code.push_back("\tmovb\t" + to_string(address) + ", " + R.top());
             // this->address
         }
@@ -288,10 +285,10 @@ namespace IPL
         int l_label = left->get_label();
         int r_label = right->get_label();
         label = l_label == r_label ? l_label + 1 : std::max(l_label, r_label);
-        if(op == OP_Binary::OP_DIV)
-        {
-            label = std::max(4, label);
-        }
+        // if(op == OP_Binary::OP_DIV)
+        // {
+        //     label = std::max(6, label);
+        // }
         return runtime_constants;
     }
     void op_binary_astnode::generate_code()
@@ -304,6 +301,7 @@ namespace IPL
             if (l_label >= total_registers && r_label >= total_registers)
             {
                 right->generate_code();
+                
                 if (right->get_is_bool())
                 {
                     std::string M = right->to_arithmetic();
@@ -326,10 +324,14 @@ namespace IPL
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_DIV)
                 {
-                    Code.push_back("\tmovl\t" + reg + ", %eax");
+                    Code.push_back("\tpushl\t%edx");
+                    Code.push_back("\tpushl\t" + R.top());
+                    swap(reg, "%eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t"+ R.top());
-                    Code.push_back("\tmovl\t%eax, " + reg);
+                    Code.push_back("\tidivl\t(%esp)");
+                    swap(reg, "%eax");
+                    Code.push_back("\taddl\t$4, %esp");
+                    Code.push_back("\tpopl\t%edx");
                 }
                 R.push(reg);
             }
@@ -356,10 +358,14 @@ namespace IPL
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_DIV)
                 {
-                    Code.push_back("\tmovl\t" + reg + ", %eax");
+                    Code.push_back("\tpushl\t%edx");
+                    Code.push_back("\tpushl\t" + R.top());
+                    swap(reg, "%eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t"+ R.top());
-                    Code.push_back("\tmovl\t%eax, " + reg);
+                    Code.push_back("\tidivl\t(%esp)");
+                    swap(reg, "%eax");
+                    Code.push_back("\taddl\t$4, %esp");
+                    Code.push_back("\tpopl\t%edx");
                 }
                 R.push(reg);
             }
@@ -387,10 +393,14 @@ namespace IPL
                     Code.push_back("\timull\t" + reg + ", " + R.top());
                 else if (op == OP_Binary::OP_DIV)
                 {
-                    Code.push_back("\tmovl\t" + R.top() + ", %eax");
+                    Code.push_back("\tpushl\t%edx");
+                    Code.push_back("\tpushl\t" + reg);
+                    swap(R.top(), "%eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t"+ reg);
-                    Code.push_back("\tmovl\t%eax, " + R.top());
+                    Code.push_back("\tidivl\t(%esp)");
+                    swap(R.top(), "%eax");
+                    Code.push_back("\taddl\t$4, %esp");
+                    Code.push_back("\tpopl\t%edx");
                 }
                 R.push(reg);
                 R.swap();
@@ -418,10 +428,14 @@ namespace IPL
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_DIV)
                 {
-                    Code.push_back("\tmovl\t" + reg + ", %eax");
+                    Code.push_back("\tpushl\t%edx");
+                    Code.push_back("\tpushl\t" + R.top());
+                    swap(reg, "%eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t"+ R.top());
-                    Code.push_back("\tmovl\t%eax, " + reg);
+                    Code.push_back("\tidivl\t(%esp)");
+                    swap(reg, "%eax");
+                    Code.push_back("\taddl\t$4, %esp");
+                    Code.push_back("\tpopl\t%edx");
                 }
                 R.push(reg);
             }
@@ -631,7 +645,7 @@ namespace IPL
     std::vector<std::string> int_astnode::tree_traversal()
     {
         std::vector<std::string> runtime_constants;
-        label = 0;
+        label = 1;
         return runtime_constants;
     }
     void int_astnode::generate_code()
@@ -695,14 +709,17 @@ namespace IPL
             if (addr != nullptr)
             {
                 // Code.push_back("\tmovl\t" + R.top() + ", " + to_string(addr));
-                if(left->get_type()->get_base_type()==BaseType::Int){
-                    Code.push_back("\tmovl\t"+R.top()+", "+to_string(addr));
+                if (left->get_type()->get_base_type() == BaseType::Int)
+                {
+                    Code.push_back("\tmovl\t" + R.top() + ", " + to_string(addr));
                 }
-                else if(left->get_type()->get_base_type()==BaseType::Struct){
+                else if (left->get_type()->get_base_type() == BaseType::Struct)
+                {
                     int size = left->get_type()->get_size();
-                    for(int i=0;i<size;i+=4){
-                        Code.push_back("\tmovl\t"+to_string(right->get_address())+", "+R.top());
-                        Code.push_back("\tmovl\t"+R.top()+", "+to_string(addr));
+                    for (int i = 0; i < size; i += 4)
+                    {
+                        Code.push_back("\tmovl\t" + to_string(right->get_address()) + ", " + R.top());
+                        Code.push_back("\tmovl\t" + R.top() + ", " + to_string(addr));
                         right->get_address()->add_offset(4);
                         addr->add_offset(4);
                     }
@@ -751,7 +768,8 @@ namespace IPL
         Code.push_back("\tsubl\t$" + std::to_string(return_size) + ", %esp");
         for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
         {
-            if((*argument)->get_type()->get_base_type()==BaseType::Int){
+            if ((*argument)->get_type()->get_base_type() == BaseType::Int)
+            {
                 (*argument)->generate_code();
                 if ((*argument)->get_is_bool())
                 {
@@ -760,12 +778,14 @@ namespace IPL
                 }
                 Code.push_back("\tpushl\t" + R.top());
             }
-            else if((*argument)->get_type()->get_base_type()==BaseType::Struct){
+            else if ((*argument)->get_type()->get_base_type() == BaseType::Struct)
+            {
                 (*argument)->generate_code();
                 int size = (*argument)->get_type()->get_size();
-                (*argument)->get_address()->add_offset(size-4);
-                for(int i=0;i<size;i+=4){
-                    Code.push_back("\tmovl\t"+to_string((*argument)->get_address())+", "+R.top());
+                (*argument)->get_address()->add_offset(size - 4);
+                for (int i = 0; i < size; i += 4)
+                {
+                    Code.push_back("\tmovl\t" + to_string((*argument)->get_address()) + ", " + R.top());
                     Code.push_back("\tpushl\t" + R.top());
                     (*argument)->get_address()->add_offset(-4);
                 }
@@ -774,17 +794,19 @@ namespace IPL
         Code.push_back("\tcall\t" + name);
         Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
         // Restore return value
-        if(this->get_type()->get_base_type()==BaseType::Int){
+        if (this->get_type()->get_base_type() == BaseType::Int)
+        {
             Code.push_back("\tpopl\t" + R.top());
         }
-        else if(this->get_type()->get_base_type()==BaseType::Struct){
+        else if (this->get_type()->get_base_type() == BaseType::Struct)
+        {
             // int size = this->get_type()->get_size();
             // for(int i=0;i<size;i+=4){
             //     Code.push_back("\tpopl\t" + R.top());
             //     this->return_address->add_offset(4);
             // }
             Code.push_back("\taddl\t$" + std::to_string(return_size) + ", %esp");
-            this->address = new Address(-(saved_regs*4+return_size), "esp");
+            this->address = new Address(-(saved_regs * 4 + return_size), "esp");
         }
         // Restore registers
         for (auto reg = saved_registers.rbegin(); reg != saved_registers.rend(); ++reg)
@@ -829,7 +851,6 @@ namespace IPL
                 statement->generate_code();
             }
             Code.push_back("");
-            
         }
     }
 
@@ -1015,14 +1036,17 @@ namespace IPL
                 std::string M = expression->to_arithmetic();
                 Code.push_back(M + ":");
             }
-            if(expression->get_type()->get_base_type()==BaseType::Int){
-                Code.push_back("\tmovl\t"+R.top()+", "+to_string(this->return_address));
+            if (expression->get_type()->get_base_type() == BaseType::Int)
+            {
+                Code.push_back("\tmovl\t" + R.top() + ", " + to_string(this->return_address));
             }
-            else if(expression->get_type()->get_base_type()==BaseType::Struct){
+            else if (expression->get_type()->get_base_type() == BaseType::Struct)
+            {
                 int size = expression->get_type()->get_size();
-                for(int i=0;i<size;i+=4){
-                    Code.push_back("\tmovl\t"+to_string(expression->get_address())+", "+R.top());
-                    Code.push_back("\tmovl\t"+R.top()+", "+to_string(this->return_address));
+                for (int i = 0; i < size; i += 4)
+                {
+                    Code.push_back("\tmovl\t" + to_string(expression->get_address()) + ", " + R.top());
+                    Code.push_back("\tmovl\t" + R.top() + ", " + to_string(this->return_address));
                     expression->get_address()->add_offset(4);
                     this->return_address->add_offset(4);
                 }
@@ -1059,7 +1083,8 @@ namespace IPL
         // Evaluate arguments in reverese and push into stack
         for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
         {
-            if((*argument)->get_type()->get_base_type()==BaseType::Int){
+            if ((*argument)->get_type()->get_base_type() == BaseType::Int)
+            {
                 (*argument)->generate_code();
                 if ((*argument)->get_is_bool())
                 {
@@ -1068,12 +1093,14 @@ namespace IPL
                 }
                 Code.push_back("\tpushl\t" + R.top());
             }
-            else if((*argument)->get_type()->get_base_type()==BaseType::Struct){
+            else if ((*argument)->get_type()->get_base_type() == BaseType::Struct)
+            {
                 (*argument)->generate_code();
                 int size = (*argument)->get_type()->get_size();
-                (*argument)->get_address()->add_offset(size-4);
-                for(int i=0;i<size;i+=4){
-                    Code.push_back("\tmovl\t"+to_string((*argument)->get_address())+", "+R.top());
+                (*argument)->get_address()->add_offset(size - 4);
+                for (int i = 0; i < size; i += 4)
+                {
+                    Code.push_back("\tmovl\t" + to_string((*argument)->get_address()) + ", " + R.top());
                     Code.push_back("\tpushl\t" + R.top());
                     (*argument)->get_address()->add_offset(-4);
                 }
