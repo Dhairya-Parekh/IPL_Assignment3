@@ -326,10 +326,10 @@ namespace IPL
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_DIV)
                 {
-                    Code.push_back("\tmovl\t" + R.top() + ", %eax");
+                    Code.push_back("\tmovl\t" + reg + ", %eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t"+ reg);
-                    Code.push_back("\tmovl\t%eax, " + R.top());
+                    Code.push_back("\tidivl\t"+ R.top());
+                    Code.push_back("\tmovl\t%eax, " + reg);
                 }
                 R.push(reg);
             }
@@ -356,10 +356,10 @@ namespace IPL
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_DIV)
                 {
-                    Code.push_back("\tmovl\t" + R.top() + ", %eax");
+                    Code.push_back("\tmovl\t" + reg + ", %eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t"+ reg);
-                    Code.push_back("\tmovl\t%eax, " + R.top());
+                    Code.push_back("\tidivl\t"+ R.top());
+                    Code.push_back("\tmovl\t%eax, " + reg);
                 }
                 R.push(reg);
             }
@@ -387,10 +387,10 @@ namespace IPL
                     Code.push_back("\timull\t" + reg + ", " + R.top());
                 else if (op == OP_Binary::OP_DIV)
                 {
-                    Code.push_back("\tmovl\t" + reg + ", %eax");
+                    Code.push_back("\tmovl\t" + R.top() + ", %eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t"+ R.top());
-                    Code.push_back("\tmovl\t%eax, " + reg);
+                    Code.push_back("\tidivl\t"+ reg);
+                    Code.push_back("\tmovl\t%eax, " + R.top());
                 }
                 R.push(reg);
                 R.swap();
@@ -418,10 +418,10 @@ namespace IPL
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_DIV)
                 {
-                    Code.push_back("\tmovl\t" + R.top() + ", %eax");
+                    Code.push_back("\tmovl\t" + reg + ", %eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t"+ reg);
-                    Code.push_back("\tmovl\t%eax, " + R.top());
+                    Code.push_back("\tidivl\t"+ R.top());
+                    Code.push_back("\tmovl\t%eax, " + reg);
                 }
                 R.push(reg);
             }

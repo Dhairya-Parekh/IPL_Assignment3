@@ -4,8 +4,8 @@
 RegisterStack::RegisterStack()
 {
     registers.push("%eax");
-    registers.push("%ecx");
     registers.push("%edx");
+    registers.push("%ecx");
     registers.push("%ebx");
     registers.push("%esi");
     registers.push("%edi");
