@@ -288,6 +288,10 @@ namespace IPL
         int l_label = left->get_label();
         int r_label = right->get_label();
         label = l_label == r_label ? l_label + 1 : std::max(l_label, r_label);
+        if(op == OP_Binary::OP_DIV)
+        {
+            label = std::max(4, label);
+        }
         return runtime_constants;
     }
     void op_binary_astnode::generate_code()
@@ -322,13 +326,10 @@ namespace IPL
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_DIV)
                 {
-                    // swap reg and eax, swap R.top and edx
-                    swap(reg,R.top());
-                    // divide
+                    Code.push_back("\tmovl\t" + R.top() + ", %eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t%edx");
-                    // swap reg and eax, swap R.top and edx
-                    swap(reg,R.top());
+                    Code.push_back("\tidivl\t"+ reg);
+                    Code.push_back("\tmovl\t%eax, " + R.top());
                 }
                 R.push(reg);
             }
@@ -353,14 +354,12 @@ namespace IPL
                     Code.push_back("\tsubl\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_MUL)
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_DIV){
-                    // swap reg and eax, swap R.top and edx
-                    swap(reg,R.top());
-                    // divide
+                else if (op == OP_Binary::OP_DIV)
+                {
+                    Code.push_back("\tmovl\t" + R.top() + ", %eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t%edx");
-                    // swap reg and eax, swap R.top and edx
-                    swap(reg,R.top());
+                    Code.push_back("\tidivl\t"+ reg);
+                    Code.push_back("\tmovl\t%eax, " + R.top());
                 }
                 R.push(reg);
             }
@@ -386,14 +385,12 @@ namespace IPL
                     Code.push_back("\tsubl\t" + reg + ", " + R.top());
                 else if (op == OP_Binary::OP_MUL)
                     Code.push_back("\timull\t" + reg + ", " + R.top());
-                else if (op == OP_Binary::OP_DIV){
-                    // swap reg and eax, swap R.top and edx
-                    swap(R.top(),reg);
-                    // divide
+                else if (op == OP_Binary::OP_DIV)
+                {
+                    Code.push_back("\tmovl\t" + reg + ", %eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t%edx");
-                    // swap reg and eax, swap R.top and edx
-                    swap(R.top(),reg);
+                    Code.push_back("\tidivl\t"+ R.top());
+                    Code.push_back("\tmovl\t%eax, " + reg);
                 }
                 R.push(reg);
                 R.swap();
@@ -419,14 +416,12 @@ namespace IPL
                     Code.push_back("\tsubl\t" + R.top() + ", " + reg);
                 else if (op == OP_Binary::OP_MUL)
                     Code.push_back("\timull\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_DIV){
-                    // swap reg and eax, swap R.top and edx
-                    swap(reg,R.top());
-                    // divide
+                else if (op == OP_Binary::OP_DIV)
+                {
+                    Code.push_back("\tmovl\t" + R.top() + ", %eax");
                     Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t%edx");
-                    // swap reg and eax, swap R.top and edx
-                    swap(reg,R.top());
+                    Code.push_back("\tidivl\t"+ reg);
+                    Code.push_back("\tmovl\t%eax, " + R.top());
                 }
                 R.push(reg);
             }

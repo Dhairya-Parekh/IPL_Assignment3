@@ -3,12 +3,12 @@
 
 RegisterStack::RegisterStack()
 {
-    registers.push("%edi");
-    registers.push("%esi");
-    registers.push("%ebx");
-    registers.push("%edx");
-    registers.push("%ecx");
     registers.push("%eax");
+    registers.push("%ecx");
+    registers.push("%edx");
+    registers.push("%ebx");
+    registers.push("%esi");
+    registers.push("%edi");
 }
 
 std::string RegisterStack::pop()
