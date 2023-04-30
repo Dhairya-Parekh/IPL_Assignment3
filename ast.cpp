@@ -533,7 +533,7 @@ namespace IPL
         }
         else
         {
-            if (op == OP_Binary::OP_ADD || op == OP_Binary::OP_SUB || op == OP_Binary::OP_MUL || op == OP_Binary::OP_DIV)
+            if (op == OP_Binary::OP_ADD || op == OP_Binary::OP_SUB || op == OP_Binary::OP_MUL)
             {
                 int l_label = left->get_label();
                 int r_label = right->get_label();
@@ -794,6 +794,41 @@ namespace IPL
                         Code.push_back("\tpopl\t%edx");
                     }
                     R.push(reg);
+                }
+            }
+            else if(op == OP_Binary::OP_DIV)
+            {
+                right->generate_code(false);
+
+                if (right->get_is_bool())
+                {
+                    std::string M = right->to_arithmetic();
+                    Code.push_back(M + ":");
+                }
+                Code.push_back("\tpushl\t" + R.top()); // denominator
+                left->generate_code(false);
+                if (left->get_is_bool())
+                {
+                    std::string M = left->to_arithmetic();
+                    Code.push_back(M + ":");
+                }
+                if(R.top() == "%eax")
+                {
+                    Code.push_back("\tpushl\t%edx");
+                    Code.push_back("\tcltd");
+                    Code.push_back("\tidivl\t4(%esp)");
+                    Code.push_back("\tpopl\t%edx");
+                    Code.push_back("\taddl\t$4, %esp");
+                }
+                else
+                {
+                    swap(R.top(), "%eax");
+                    Code.push_back("\tpushl\t%edx");
+                    Code.push_back("\tcltd");
+                    Code.push_back("\tidivl\t4(%esp)");
+                    Code.push_back("\tpopl\t%edx");
+                    Code.push_back("\taddl\t$4, %esp");
+                    swap(R.top(), "%eax");
                 }
             }
             else if (op == OP_Binary::OP_OR)
