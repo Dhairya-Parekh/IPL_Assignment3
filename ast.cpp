@@ -147,12 +147,13 @@ namespace IPL
         this->type = type;
     }
 
-    identifier_astnode::identifier_astnode(std::string name, int offset)
+    identifier_astnode::identifier_astnode(std::string name, int offset, Scope scope)
     {
         this->name = name;
         this->offset = offset;
         this->address = new Address(offset, "ebp");
         this->node_type = ASTNodeType::Identifier;
+        this->scope = scope;
     }
     std::vector<std::string> identifier_astnode::tree_traversal()
     {
@@ -172,11 +173,19 @@ namespace IPL
             {
                 Code.push_back("\tmovl\t" + to_string(address) + ", " + R.top());
             }
-            else if (this->type->get_base_type() == BaseType::Struct)
+            else if (this->type->get_base_type() == BaseType::Struct || this->type->get_base_type() == BaseType::Array)
             {
                 Code.push_back("\tleal\t" + to_string(address) + ", " + R.top());
             }
+            else
+            {
+                std::cout << "Error: Unknown type" << std::endl;
+            }
         }
+    }
+    Scope identifier_astnode::get_scope()
+    {
+        return this->scope;
     }
 
     member_astnode::member_astnode(expression_astnode *expression, identifier_astnode *name)
@@ -232,9 +241,209 @@ namespace IPL
     }
     void array_astnode::generate_code(bool lvalue)
     {
-        std::cout << "array_astnode::generate_code()" << std::endl;
-        // expression->generate_code();
-        // index->generate_code();
+        if (lvalue)
+        {
+            if (expression->get_node_type() == ASTNodeType::Identifier)
+            {
+                R.swap();
+                identifier_astnode *name = (identifier_astnode *)expression;
+                if (name->get_scope() == Scope::Local)
+                {
+                    index->generate_code(false);
+                    std::string reg = R.pop();
+                    if (index->get_type()->get_base_type() == BaseType::Int)
+                    {
+                        if (index->get_is_bool())
+                        {
+                            std::string M = index->to_arithmetic();
+                            Code.push_back(M + ":");
+                        }
+                        Code.push_back("\tleal\t" + to_string(expression->get_address()) + ", " + R.top());
+                        Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", " + reg);
+                        Code.push_back("\taddl\t" + reg + ", " + R.top());
+                    }
+                    R.push(reg);
+                }
+                else if (name->get_scope() == Scope::Param)
+                {
+                    index->generate_code(false);
+                    std::string reg = R.pop();
+                    if (index->get_type()->get_base_type() == BaseType::Int)
+                    {
+                        if (index->get_is_bool())
+                        {
+                            std::string M = index->to_arithmetic();
+                            Code.push_back(M + ":");
+                        }
+                        expression->generate_code(true);
+                        Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", " + reg);
+                        Code.push_back("\taddl\t" + reg + ", " + R.top());
+                    }
+                    R.push(reg);
+                }
+                R.swap();
+            }
+            else if (index->get_label() < expression->get_label() && index->get_label() < total_registers)
+            {
+                expression->generate_code(true);
+                std::string reg = R.pop();
+                index->generate_code(false);
+                if (index->get_type()->get_base_type() == BaseType::Int)
+                {
+                    if (index->get_is_bool())
+                    {
+                        std::string M = index->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", " + R.top());
+                    Code.push_back("\taddl\t" + R.top() + ", " + reg);
+                }
+                R.push(reg);
+            }
+            else if (index->get_label() >= expression->get_label() && expression->get_label() < total_registers)
+            {
+                R.swap();
+                index->generate_code(false);
+                std::string reg = R.pop();
+                if (index->get_type()->get_base_type() == BaseType::Int)
+                {
+                    if (index->get_is_bool())
+                    {
+                        std::string M = index->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    expression->generate_code(true);
+                    Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", " + reg);
+                    Code.push_back("\taddl\t" + reg + ", " + R.top());
+                }
+                R.push(reg);
+                R.swap();
+            }
+            else if (expression->get_label() >= total_registers && index->get_label() >= total_registers)
+            {
+                R.swap();
+                index->generate_code(false);
+                if (index->get_type()->get_base_type() == BaseType::Int)
+                {
+                    if (index->get_is_bool())
+                    {
+                        std::string M = index->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\tpushl\t" + R.top());
+                    expression->generate_code(true);
+                    std::string reg = R.top();
+                    Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", (%esp)");
+                    Code.push_back("\taddl\t(%esp), " + reg);
+                    Code.push_back("\taddl\t$4, %esp");
+                }
+                R.swap();
+            }
+        }
+        else
+        {
+            if (expression->get_node_type() == ASTNodeType::Identifier)
+            {
+                R.swap();
+                identifier_astnode *name = (identifier_astnode *)expression;
+                if (name->get_scope() == Scope::Local)
+                {
+                    index->generate_code(false);
+                    std::string reg = R.pop();
+                    if (index->get_type()->get_base_type() == BaseType::Int)
+                    {
+                        if (index->get_is_bool())
+                        {
+                            std::string M = index->to_arithmetic();
+                            Code.push_back(M + ":");
+                        }
+                        Code.push_back("\tleal\t" + to_string(expression->get_address()) + ", " + R.top());
+                        Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", " + reg);
+                        Code.push_back("\taddl\t" + reg + ", " + R.top());
+                        Code.push_back("\tmovl\t(" + R.top() + "), " + R.top());
+                    }
+                    R.push(reg);
+                }
+                else if (name->get_scope() == Scope::Param)
+                {
+                    index->generate_code(false);
+                    std::string reg = R.pop();
+                    if (index->get_type()->get_base_type() == BaseType::Int)
+                    {
+                        if (index->get_is_bool())
+                        {
+                            std::string M = index->to_arithmetic();
+                            Code.push_back(M + ":");
+                        }
+                        expression->generate_code(true);
+                        Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", " + reg);
+                        Code.push_back("\taddl\t" + reg + ", " + R.top());
+                        Code.push_back("\tmovl\t(" + R.top() + "), " + R.top());
+                    }
+                    R.push(reg);
+                }
+                R.swap();
+            }
+            else if (index->get_label() < expression->get_label() && index->get_label() < total_registers)
+            {
+                expression->generate_code(true);
+                std::string reg = R.pop();
+                index->generate_code(false);
+                if (index->get_type()->get_base_type() == BaseType::Int)
+                {
+                    if (index->get_is_bool())
+                    {
+                        std::string M = index->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", " + R.top());
+                    Code.push_back("\taddl\t" + R.top() + ", " + reg);
+                    Code.push_back("\tmovl\t(" + reg + "), " + reg);
+                }
+                R.push(reg);
+            }
+            else if (index->get_label() >= expression->get_label() && expression->get_label() < total_registers)
+            {
+                R.swap();
+                index->generate_code(false);
+                std::string reg = R.pop();
+                if (index->get_type()->get_base_type() == BaseType::Int)
+                {
+                    if (index->get_is_bool())
+                    {
+                        std::string M = index->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    expression->generate_code(true);
+                    Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", " + reg);
+                    Code.push_back("\taddl\t" + reg + ", " + R.top());
+                    Code.push_back("\tmovl\t(" + R.top() + "), " + R.top());
+                }
+                R.push(reg);
+                R.swap();
+            }
+            else if (expression->get_label() >= total_registers && index->get_label() >= total_registers)
+            {
+                R.swap();
+                index->generate_code(false);
+                if (index->get_type()->get_base_type() == BaseType::Int)
+                {
+                    if (index->get_is_bool())
+                    {
+                        std::string M = index->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\tpushl\t" + R.top());
+                    expression->generate_code(true);
+                    std::string reg = R.top();
+                    Code.push_back("\timull\t$" + std::to_string(expression->get_type()->get_sub_type()->get_recursive_size()) + ", (%esp)");
+                    Code.push_back("\taddl\t(%esp), " + reg);
+                    Code.push_back("\tmovl\t(" + reg + "), " + reg);
+                    Code.push_back("\taddl\t$4, %esp");
+                }
+                R.swap();
+            }   
+        }
     }
 
     arrow_astnode::arrow_astnode(expression_astnode *expression, identifier_astnode *name)
@@ -978,6 +1187,7 @@ namespace IPL
                     std::string reg = R.pop();
                     Code.push_back("\tmovl\t(%esp), " + R.top());
                     Code.push_back("\tmovl\t" + R.top() + ", (" + reg + ")");
+                    R.push(reg);
                 }
                 else if (left->get_type()->get_base_type() == BaseType::Struct)
                 {
@@ -1063,6 +1273,15 @@ namespace IPL
                         Code.push_back("\tpushl\t" + R.top());
                     }
                     R.push(reg);
+                }
+                else if ((*argument)->get_type()->get_base_type() == BaseType::Array)
+                {
+                    (*argument)->generate_code(true);
+                    Code.push_back("\tpushl\t" + R.top());
+                }
+                else
+                {
+                    std::cout << "Error: Invalid argument type\n";
                 }
             }
             Code.push_back("\tcall\t" + name);
@@ -1297,11 +1516,12 @@ namespace IPL
         }
     }
 
-    return_astnode::return_astnode(expression_astnode *expression, int return_address_offset)
+    return_astnode::return_astnode(expression_astnode *expression, int return_address_offset, int local_var_size)
     {
         this->expression = expression;
         this->node_type = ASTNodeType::Return;
         this->return_address = new Address(return_address_offset, "ebp");
+        this->local_var_size = local_var_size+4;
     }
     std::vector<std::string> return_astnode::tree_traversal()
     {
@@ -1320,27 +1540,49 @@ namespace IPL
             std::cout << "Error: Lvalue of statement is true\n";
         else
         {
-            expression->generate_code(false);
-            if (expression->get_type()->get_base_type() == BaseType::Int)
-            {
-                if (expression->get_is_bool())
+            if(expression!=NULL&&return_address->get_offset()>0){
+                expression->generate_code(false);
+                if (expression->get_type()->get_base_type() == BaseType::Int)
                 {
-                    std::string M = expression->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                Code.push_back("\tmovl\t" + R.top() + ", " + to_string(this->return_address));
-            }
-            else if (expression->get_type()->get_base_type() == BaseType::Struct)
-            {
-                int size = expression->get_type()->get_size();
-                std::string reg = R.pop();
-                for (int i = 0; i < size; i += 4)
-                {
-                    Code.push_back("\tmovl\t" + std::to_string(i) + "(" + reg + "), " + R.top());
+                    if (expression->get_is_bool())
+                    {
+                        std::string M = expression->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
                     Code.push_back("\tmovl\t" + R.top() + ", " + to_string(this->return_address));
-                    this->return_address->add_offset(4);
                 }
-                R.push(reg);
+                else if (expression->get_type()->get_base_type() == BaseType::Struct)
+                {
+                    int size = expression->get_type()->get_size();
+                    std::string reg = R.pop();
+                    for (int i = 0; i < size; i += 4)
+                    {
+                        Code.push_back("\tmovl\t" + std::to_string(i) + "(" + reg + "), " + R.top());
+                        Code.push_back("\tmovl\t" + R.top() + ", " + to_string(this->return_address));
+                        this->return_address->add_offset(4);
+                    }
+                    R.push(reg);
+                }
+                // Reclaim space for local variables
+                Code.push_back("\taddl\t$" + std::to_string(local_var_size) + ", %esp");
+                // Restore Activation Record
+                Code.push_back("\tleave");
+                Code.push_back("\tret");
+            }
+            else if(return_address->get_offset()==-1){
+                // Return zero from main
+                Code.push_back("\tmovl\t$0, %eax");
+                Code.push_back("\taddl\t$" + std::to_string(local_var_size) + ", %esp");
+                // Restore Activation Record
+                Code.push_back("\tleave");
+                Code.push_back("\tret");
+            }
+            else{
+                // Reclaim space for local variables
+                Code.push_back("\taddl\t$" + std::to_string(local_var_size) + ", %esp");
+                // Restore Activation Record
+                Code.push_back("\tleave");
+                Code.push_back("\tret");
             }
         }
     }
@@ -1386,9 +1628,9 @@ namespace IPL
             // Evaluate arguments in reverese and push into stack
             for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
             {
-                (*argument)->generate_code(false);
                 if ((*argument)->get_type()->get_base_type() == BaseType::Int || (*argument)->get_type()->get_base_type() == BaseType::Pointer)
                 {
+                    (*argument)->generate_code(false);
                     if ((*argument)->get_is_bool())
                     {
                         std::string M = (*argument)->to_arithmetic();
@@ -1398,6 +1640,7 @@ namespace IPL
                 }
                 else if ((*argument)->get_type()->get_base_type() == BaseType::Struct)
                 {
+                    (*argument)->generate_code(false);
                     int size = (*argument)->get_type()->get_size();
                     std::string reg = R.pop();
                     Code.push_back("\tleal\t" + std::to_string(size - 4) + "(" + reg + "), " + reg);
@@ -1407,6 +1650,15 @@ namespace IPL
                         Code.push_back("\tpushl\t" + R.top());
                     }
                     R.push(reg);
+                }
+                else if ((*argument)->get_type()->get_base_type() == BaseType::Array)
+                {
+                    (*argument)->generate_code(true);
+                    Code.push_back("\tpushl\t" + R.top());
+                }
+                else
+                {
+                    std::cout << "Error: Invalid argument type\n";
                 }
             }
             Code.push_back("\tcall\t" + name);
@@ -1478,14 +1730,15 @@ namespace IPL
             }
             Code.push_back("\tpushl\t$" + format->get_reference());
             Code.push_back("\tcall\tprintf");
-            Code.push_back("\taddl\t$" + std::to_string(local_param_size+4) + ", %esp");
+            Code.push_back("\taddl\t$" + std::to_string(local_param_size + 4) + ", %esp");
         }
     }
 
-    compound_statement::compound_statement(seq_astnode *statements, int local_var_size)
+    compound_statement::compound_statement(seq_astnode *statements, int local_var_size, bool is_void)
     {
         this->statements = statements;
         this->local_var_size = local_var_size;
+        this->is_void = is_void;
     }
     void compound_statement::populate_runtime_constants()
     {
@@ -1504,31 +1757,31 @@ namespace IPL
         Code.clear();
         Code.push_back("\t.globl " + function_name);
         Code.push_back("\t.type " + function_name + ", @function");
-        if (statements)
+        populate_runtime_constants();
+        print_runtime_constants();
+        Code.push_back(function_name + ":");
+        // Setup Activation Record
+        Code.push_back("\tpushl\t%ebp");
+        Code.push_back("\tmovl\t%esp, %ebp");
+        // Allocate space for local variables
+        Code.push_back("\tsubl\t$" + std::to_string(local_var_size) + ", %esp");
+        // Save Registers
+        std::vector<std::string> registers = R.getCalleeSaved(label);
+        for (auto reg : registers)
         {
-            populate_runtime_constants();
-            print_runtime_constants();
-            Code.push_back(function_name + ":");
-            // Setup Activation Record
-            Code.push_back("\tpushl\t%ebp");
-            Code.push_back("\tmovl\t%esp, %ebp");
-            // Allocate space for local variables
-            Code.push_back("\tsubl\t$" + std::to_string(local_var_size) + ", %esp");
-            // Save Registers
-            std::vector<std::string> registers = R.getCalleeSaved(label);
-            for (auto reg : registers)
-            {
-                Code.push_back("\tpushl\t" + reg);
-            }
-            // Generate Code for statements
-            statements->generate_code(false);
-            // Restore Registers
-            for (auto reg = registers.rbegin(); reg != registers.rend(); ++reg)
-            {
-                Code.push_back("\tpopl\t" + *reg);
-            }
+            Code.push_back("\tpushl\t" + reg);
+        }
+        // Generate Code for statements
+        statements->generate_code(false);
+        // Restore Registers
+        for (auto reg = registers.rbegin(); reg != registers.rend(); ++reg)
+        {
+            Code.push_back("\tpopl\t" + *reg);
+        }
+        if(is_void)
+        {
             // Reclaim space for local variables
-            Code.push_back("\taddl\t$" + std::to_string(local_var_size + 4) + ", %esp");
+            Code.push_back("\taddl\t$" + std::to_string(local_var_size) + ", %esp");
             // Restore Activation Record
             Code.push_back("\tleave");
             Code.push_back("\tret");

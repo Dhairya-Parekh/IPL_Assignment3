@@ -76,9 +76,11 @@ namespace IPL
     private:
         std::string name;
         int offset;
+        Scope scope;
 
     public:
-        identifier_astnode(std::string name, int offset);
+        identifier_astnode(std::string name, int offset, Scope scope);
+        Scope get_scope();
         std::vector<std::string> tree_traversal();
         void generate_code(bool lvalue);
     };
@@ -254,9 +256,10 @@ namespace IPL
     private:
         expression_astnode *expression;
         Address* return_address;
+        int local_var_size;
 
     public:
-        return_astnode(expression_astnode *expression, int return_value_offset);
+        return_astnode(expression_astnode *expression, int return_value_offset, int local_var_size);
         std::vector<std::string> tree_traversal();
         void generate_code(bool lvalue);
     };
@@ -295,9 +298,10 @@ namespace IPL
         int local_var_size;
         std::vector<std::string> runtime_constants;
         int label;
+        bool is_void;
 
     public:
-        compound_statement(seq_astnode *statements, int local_var_size);
+        compound_statement(seq_astnode *statements, int local_var_size, bool is_void);
         void populate_runtime_constants();
         void print_runtime_constants();
         void generate_code(std::string function_name);

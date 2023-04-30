@@ -76,6 +76,7 @@
    int return_offset = 0;
    std::map<std::string, compound_statement*> func_ast_map;
    Category current_category = Category::Const;
+   Type* current_return_type = NULL;
    void generate_code(){
       for(auto it = func_ast_map.begin(); it != func_ast_map.end(); it++) {
          if(it->second){
@@ -235,11 +236,13 @@ function_definition
    current_offset = 0;
    return_offset = 8;
    current_category = Category::Function;
+   current_return_type = $1;
 } compound_statement {
    func_ast_map[$2] = $6;
    current_lst = NULL;
    current_offset = 0;
    current_category = Category::Const;
+   current_return_type = nullptr;
 }
 | type_specifier IDENTIFIER LRB {
    LST* lst = new LST();
@@ -266,15 +269,16 @@ function_definition
       if(type->get_base_type() == BaseType::Void) {
          error(@1, "The variable \"" + parameter->getName() + "\" cannot be of type void");
       }
+      int size = type->get_base_type() == BaseType::Array ? 4 : type->get_size();
       LST_Entry* lst_entry = new LST_Entry(
          parameter->getName(),
          Category::Variable,
          Scope::Param,
          type,
-         type->get_size(),
+         size,
          current_offset
       );
-      current_offset += type->get_size();
+      current_offset += size;
       bool success = current_lst->addEntry(lst_entry);
       if(!success) {
          error(@1, "The variable \"" + parameter->getName() + "\" has a previous declaration");
@@ -284,11 +288,13 @@ function_definition
    return_offset = current_offset;
    current_offset = 0;
    current_category = Category::Function;
+   current_return_type = $1;
 } compound_statement {
    func_ast_map[$2] = $9;
    current_lst = NULL;
    current_offset = 0;
    current_category = Category::Const;
+   current_return_type = nullptr;
 }
 
 main_definition
@@ -309,12 +315,15 @@ main_definition
    }
    current_lst = lst;
    current_offset = 0;
+   return_offset = -1;
    current_category = Category::Function;
+   current_return_type = new Type(BaseType::Int);
 } compound_statement {
    func_ast_map[$2] = $6;
    current_lst = NULL;
    current_offset = 0;
    current_category = Category::Const;
+   current_return_type = nullptr;
 }
 
 type_specifier
@@ -365,18 +374,18 @@ declaration
          error(@1, "The variable \"" + name + "\" cannot be of type void");
       }
       if(current_category == Category::Function) {
-         current_offset -= type->get_size();
+         current_offset -= type->get_recursive_size();
       }
       LST_Entry* lst_entry = new LST_Entry(
          name,
          Category::Variable,
          Scope::Local,
          type,
-         type->get_size(),
+         type->get_recursive_size(),
          current_offset
       );
       if(current_category == Category::Struct) {
-         current_offset += type->get_size();
+         current_offset += type->get_recursive_size();
       }
       bool success = current_lst->addEntry(lst_entry);
       if(!success) {
@@ -418,11 +427,11 @@ compound_statement
    $$ = nullptr; 
 }
 | LCB statement_list RCB {
-   $$ = new compound_statement($2, 0);
+   $$ = new compound_statement($2, 0, current_return_type->get_base_type()==BaseType::Void);
 }
 | LCB declaration_list statement_list RCB { 
    int size = current_lst->getLocalVarSize();
-   $$ = new compound_statement($3, size); 
+   $$ = new compound_statement($3, size, current_return_type->get_base_type()==BaseType::Void); 
 }
 
 statement_list
@@ -445,7 +454,7 @@ statement
 | printf_call { $$ = $1; }
 | RETURN expression EOS { 
    // TODO: check if return type is correct 
-   $$ = new return_astnode($2, return_offset);
+   $$ = new return_astnode($2, return_offset, current_lst->getLocalVarSize());
 }
 
 assignment_expression
@@ -675,7 +684,7 @@ postfix_expression
    if(member == nullptr) {
       error(@1, "The member \"" + $3 + "\" is not declared");
    }
-   $$ = new member_astnode($1, new identifier_astnode($3, member->getOffset()));
+   $$ = new member_astnode($1, new identifier_astnode($3, member->getOffset(), member->getScope()));
    $$->set_type(member->getType());
    $$->set_is_lvalue($1->get_is_lvalue());
 }
@@ -691,7 +700,7 @@ postfix_expression
       if(member == nullptr) {
          error(@1, "The member \"" + $3 + "\" is not declared");
       }
-      $$ = new arrow_astnode($1, new identifier_astnode($3, member->getOffset()));
+      $$ = new arrow_astnode($1, new identifier_astnode($3, member->getOffset(), member->getScope()));
       $$->set_type(member->getType());
       $$->set_is_lvalue($1->get_is_lvalue());
    }
@@ -720,7 +729,7 @@ primary_expression
       error(@1, "The identifier \"" + $1 + "\" is not declared");
    }
    int offset = entry->getOffset();
-   $$ = new identifier_astnode($1, offset);
+   $$ = new identifier_astnode($1, offset, entry->getScope());
    $$->set_type(entry->getType());
    $$->set_is_lvalue(true);
 }

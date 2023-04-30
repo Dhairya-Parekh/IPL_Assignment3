@@ -97,6 +97,25 @@ namespace IPL
         void set_name(std::string name) { this->name = name; }
         void set_sub_type(Type *sub_type) { this->sub_type = sub_type; }
         void set_size(int size) { this->size = size; }
+        int get_recursive_size() const
+        {
+            if (base_type == BaseType::Array)
+            {
+                return size * sub_type->get_recursive_size();
+            }
+            else if (base_type == BaseType::Pointer)
+            {
+                return 4;
+            }
+            else if (base_type == BaseType::Struct)
+            {
+                return size;
+            }
+            else
+            {
+                return 4;
+            }
+        }
     };
 
     class Address

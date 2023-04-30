@@ -273,28 +273,31 @@ namespace IPL
         switch (type->get_base_type())
         {
         case BaseType::Null:
-            result = "Null";
+            result = "Null ";
             break;
         case BaseType::Void:
-            result = "Void";
+            result = "Void ";
             break;
         case BaseType::Int:
-            result = "Int";
+            result = "Int ";
             break;
         case BaseType::Struct:
             result = type->get_name();
             break;
         case BaseType::Array:
-            result = "Array";
+            result = "Array ";
             break;
         case BaseType::Pointer:
-            result = "Pointer";
+            result = "Pointer ";
             break;
         default:
-            result = "Unknown";
+            result = "Unknown ";
             break;
         }
-        return result+std::to_string(type->get_size());
+        if(type->get_sub_type() == nullptr)
+            return result+std::to_string(type->get_size());
+        else 
+            return result+std::to_string(type->get_size())+"( "+ to_string(type->get_sub_type()) +" )";
     }
     std::string to_string(Address *address)
     {
@@ -316,9 +319,9 @@ namespace IPL
         }
         for (unsigned int i = 0; i < arrays.size(); i++)
         {
-            int size = type->get_size() * arrays[i];
+            // int size = type->get_size() * arrays[i];
             type = new Type(BaseType::Array, "", type, arrays[i]);
-            type->set_size(size);
+            // type->set_size(size);
         }
         return type;
     }
