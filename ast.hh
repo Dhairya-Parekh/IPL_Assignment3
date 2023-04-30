@@ -16,9 +16,9 @@ namespace IPL
     public:
         virtual ~abstract_astnode() {}
         virtual std::vector<std::string> tree_traversal() = 0;
-        virtual void generate_code() = 0;
-        ASTNodeType get_type();
-        void set_type(ASTNodeType type);
+        virtual void generate_code(bool lvalue) = 0;
+        ASTNodeType get_node_type();
+        void set_node_type(ASTNodeType type);
         int get_label();
         void set_label(int label);
     };
@@ -80,7 +80,7 @@ namespace IPL
     public:
         identifier_astnode(std::string name, int offset);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class member_astnode : public reference_astnode
     {
@@ -91,7 +91,7 @@ namespace IPL
     public:
         member_astnode(expression_astnode *expression, identifier_astnode *name);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class array_astnode : public reference_astnode
     {
@@ -102,7 +102,7 @@ namespace IPL
     public:
         array_astnode(expression_astnode *expression, expression_astnode *index);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class arrow_astnode : public reference_astnode
     {
@@ -113,7 +113,7 @@ namespace IPL
     public:
         arrow_astnode(expression_astnode *expression, identifier_astnode *name);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
 
     class op_binary_astnode : public expression_astnode
@@ -126,7 +126,7 @@ namespace IPL
     public:
         op_binary_astnode(expression_astnode *left, expression_astnode *right, OP_Binary op);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class op_unary_astnode : public expression_astnode
     {
@@ -137,17 +137,16 @@ namespace IPL
     public:
         op_unary_astnode(expression_astnode *expression, OP_Unary op);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class int_astnode : public expression_astnode
     {
     private:
         int value;
-
     public:
         int_astnode(int value);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class string_astnode : public expression_astnode
     {
@@ -158,7 +157,7 @@ namespace IPL
     public:
         string_astnode(std::string value);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
         std::string get_reference();
     };
     class assignE_astnode : public expression_astnode
@@ -170,7 +169,7 @@ namespace IPL
     public:
         assignE_astnode(expression_astnode *left, expression_astnode *right);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class funcall_astnode : public expression_astnode
     {
@@ -183,7 +182,7 @@ namespace IPL
         funcall_astnode(std::string name, int local_param_size);
         void add_argument(expression_astnode *argument);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
 
     class seq_astnode : public statement_astnode
@@ -195,14 +194,14 @@ namespace IPL
         seq_astnode();
         void add_statement(statement_astnode *statement);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class empty_astnode : public statement_astnode
     {
     public:
         empty_astnode();
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class assignS_astnode : public statement_astnode
     {
@@ -212,7 +211,7 @@ namespace IPL
     public:
         assignS_astnode(expression_astnode *assignment_expression);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class if_astnode : public statement_astnode
     {
@@ -224,7 +223,7 @@ namespace IPL
     public:
         if_astnode(expression_astnode *condition, statement_astnode *if_body, statement_astnode *else_body);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class while_astnode : public iteration_astnode
     {
@@ -235,7 +234,7 @@ namespace IPL
     public:
         while_astnode(expression_astnode *condition, statement_astnode *body);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class for_astnode : public iteration_astnode
     {
@@ -248,7 +247,7 @@ namespace IPL
     public:
         for_astnode(assignE_astnode *init, expression_astnode *condition, assignE_astnode *step, statement_astnode *body);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class return_astnode : public statement_astnode
     {
@@ -259,7 +258,7 @@ namespace IPL
     public:
         return_astnode(expression_astnode *expression, int return_value_offset);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class proccall_astnode : public statement_astnode
     {
@@ -273,7 +272,7 @@ namespace IPL
         proccall_astnode(std::string name, int local_param_size, int return_size);
         void add_argument(expression_astnode *argument);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
     class printf_astnode : public statement_astnode
     {
@@ -286,7 +285,7 @@ namespace IPL
         printf_astnode(string_astnode *format, int local_param_size);
         void add_argument(expression_astnode *argument);
         std::vector<std::string> tree_traversal();
-        void generate_code();
+        void generate_code(bool lvalue);
     };
 
     class compound_statement

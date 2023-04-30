@@ -3,12 +3,12 @@
 
 RegisterStack::RegisterStack()
 {
-    registers.push("%eax");
+    registers.push("%edi");
+    registers.push("%esi");
+    registers.push("%ebx");
     registers.push("%edx");
     registers.push("%ecx");
-    registers.push("%ebx");
-    registers.push("%esi");
-    registers.push("%edi");
+    registers.push("%eax");
 }
 
 std::string RegisterStack::pop()
@@ -61,25 +61,16 @@ void RegisterStack::swap()
 std::vector<std::string> RegisterStack::getCallerSaved()
 {
     std::vector<std::string> callerSaved;
-    if(registers.top() == "%eax")
-    {
-        return callerSaved;
-    }
-    else if(registers.top() == "%ecx"){
+    if(!find("%eax")){
         callerSaved.push_back("%eax");
-        return callerSaved;
     }
-    else if(registers.top() == "%edx"){
-        callerSaved.push_back("%eax");
+    if(!find("%ecx")){
         callerSaved.push_back("%ecx");
-        return callerSaved;
     }
-    else{
-        callerSaved.push_back("%eax");
-        callerSaved.push_back("%ecx");
+    if(!find("%edx")){
         callerSaved.push_back("%edx");
-        return callerSaved;
     }
+    return callerSaved;
 }
 
 std::vector<std::string> RegisterStack::getCalleeSaved(int label){
@@ -107,4 +98,23 @@ std::vector<std::string> RegisterStack::getCalleeSaved(int label){
         std::cout << "Error: Invalid number of callee saved registers" << std::endl;
         return calleeSaved;
     }
+}
+
+void RegisterStack::print(){
+    std::stack<std::string> temp = registers;
+    while(!temp.empty()){
+        std::cout << temp.top() << std::endl;
+        temp.pop();
+    }
+}
+
+bool RegisterStack::find(std::string reg){
+    std::stack<std::string> temp = registers;
+    while(!temp.empty()){
+        if(temp.top() == reg){
+            return true;
+        }
+        temp.pop();
+    }
+    return false;
 }

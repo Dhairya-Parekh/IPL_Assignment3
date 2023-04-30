@@ -17,6 +17,8 @@ public:
     void swap();
     std::vector<std::string> getCallerSaved();
     std::vector<std::string> getCalleeSaved(int num);
+    void print();
+    bool find(std::string reg);
 };
 
 #endif

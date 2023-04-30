@@ -39,11 +39,11 @@ void swap(std::string s1, std::string s2)
 }
 namespace IPL
 {
-    ASTNodeType abstract_astnode::get_type()
+    ASTNodeType abstract_astnode::get_node_type()
     {
         return node_type;
     }
-    void abstract_astnode::set_type(ASTNodeType type)
+    void abstract_astnode::set_node_type(ASTNodeType type)
     {
         this->node_type = type;
     }
@@ -160,17 +160,22 @@ namespace IPL
         label = 1;
         return runtime_constants;
     }
-    void identifier_astnode::generate_code()
+    void identifier_astnode::generate_code(bool lvalue)
     {
-        if (this->type->get_base_type() == BaseType::Int)
-        {
-            Code.push_back("\tmovl\t" + to_string(address) + ", " + R.top());
+        if(lvalue){
+            Code.push_back("\tleal\t" + to_string(address) + ", " + R.top());
         }
-        else if (this->type->get_base_type() == BaseType::Struct)
-        {
-            // Code.push_back("\tmovb\t" + to_string(address) + ", " + R.top());
-            // this->address
+        else{
+            if (this->type->get_base_type() == BaseType::Int)
+            {
+                Code.push_back("\tmovl\t" + to_string(address) + ", " + R.top());
+            }
+            else if (this->type->get_base_type() == BaseType::Struct)
+            {
+                Code.push_back("\tleal\t" + to_string(address) + ", " + R.top());
+            }
         }
+    
     }
 
     member_astnode::member_astnode(expression_astnode *expression, identifier_astnode *name)
@@ -188,19 +193,22 @@ namespace IPL
         label = expression->get_label();
         return runtime_constants;
     }
-    void member_astnode::generate_code()
+    void member_astnode::generate_code(bool lvalue)
     {
-        // std::cout << "member_astnode::generate_code()" << std::endl;
-        if (this->type->get_base_type() == BaseType::Int)
-        {
-            Code.push_back("\tmovl\t" + to_string(address) + ", " + R.top());
+        expression->generate_code(true);
+        if(lvalue){
+            Code.push_back("\tleal\t"+ std::to_string(name->get_address()->get_offset()) + "(" + R.top() + "), " + R.top());
         }
-        else if (this->type->get_base_type() == BaseType::Struct)
-        {
-            // Code.push_back("\tmovb\t" + to_string(address) + ", " + R.top());
-            // this->address
+        else{
+            if (this->type->get_base_type() == BaseType::Int)
+            {
+                Code.push_back("\tmovl\t"+ std::to_string(name->get_address()->get_offset()) + "(" + R.top() + "), " + R.top());
+            }
+            else if (this->type->get_base_type() == BaseType::Struct)
+            {
+                Code.push_back("\tleal\t"+ std::to_string(name->get_address()->get_offset()) + "(" + R.top() + "), " + R.top());
+            }
         }
-        // expression->generate_code();
     }
 
     array_astnode::array_astnode(expression_astnode *expression, expression_astnode *index)
@@ -219,7 +227,7 @@ namespace IPL
         label = std::max(expression->get_label(), index->get_label());
         return runtime_constants;
     }
-    void array_astnode::generate_code()
+    void array_astnode::generate_code(bool lvalue)
     {
         std::cout << "array_astnode::generate_code()" << std::endl;
         // expression->generate_code();
@@ -240,10 +248,22 @@ namespace IPL
         label = expression->get_label();
         return runtime_constants;
     }
-    void arrow_astnode::generate_code()
+    void arrow_astnode::generate_code(bool lvalue)
     {
-        std::cout << "arrow_astnode::generate_code()" << std::endl;
-        // expression->generate_code();
+        expression->generate_code(false);
+        if(lvalue){
+            Code.push_back("\tleal\t"+ std::to_string(name->get_address()->get_offset()) + "(" + R.top() + "), " + R.top());
+        }
+        else{
+            if (this->type->get_base_type() == BaseType::Int)
+            {
+                Code.push_back("\tmovl\t"+ std::to_string(name->get_address()->get_offset()) + "(" + R.top() + "), " + R.top());
+            }
+            else if (this->type->get_base_type() == BaseType::Struct)
+            {
+                Code.push_back("\tleal\t"+ std::to_string(name->get_address()->get_offset()) + "(" + R.top() + "), " + R.top());
+            }
+        }
     }
 
     op_binary_astnode::op_binary_astnode(expression_astnode *left, expression_astnode *right, OP_Binary op)
@@ -291,294 +311,299 @@ namespace IPL
         // }
         return runtime_constants;
     }
-    void op_binary_astnode::generate_code()
+    void op_binary_astnode::generate_code(bool lvalue)
     {
-        if (op == OP_Binary::OP_ADD || op == OP_Binary::OP_SUB || op == OP_Binary::OP_MUL || op == OP_Binary::OP_DIV)
-        {
-            int l_label = left->get_label();
-            int r_label = right->get_label();
+        if(lvalue){
+            std::cout << "Error: Binary node cannot be lvalue" << std::endl;
+        }
+        else{
+            if (op == OP_Binary::OP_ADD || op == OP_Binary::OP_SUB || op == OP_Binary::OP_MUL || op == OP_Binary::OP_DIV)
+            {
+                int l_label = left->get_label();
+                int r_label = right->get_label();
 
-            if (l_label >= total_registers && r_label >= total_registers)
-            {
-                right->generate_code();
-                
-                if (right->get_is_bool())
+                if (l_label >= total_registers && r_label >= total_registers)
                 {
-                    std::string M = right->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                Code.push_back("\tpushl\t" + R.top());
-                left->generate_code();
-                if (left->get_is_bool())
-                {
-                    std::string M = left->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                std::string reg = R.pop();
-                Code.push_back("\tpopl\t" + R.top());
-                if (op == OP_Binary::OP_ADD)
-                    Code.push_back("\taddl\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_SUB)
-                    Code.push_back("\tsubl\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_MUL)
-                    Code.push_back("\timull\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_DIV)
-                {
-                    Code.push_back("\tpushl\t%edx");
+                    right->generate_code(false);
+                    
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
                     Code.push_back("\tpushl\t" + R.top());
-                    swap(reg, "%eax");
-                    Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t(%esp)");
-                    swap(reg, "%eax");
-                    Code.push_back("\taddl\t$4, %esp");
-                    Code.push_back("\tpopl\t%edx");
+                    left->generate_code(false);
+                    if (left->get_is_bool())
+                    {
+                        std::string M = left->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    std::string reg = R.pop();
+                    Code.push_back("\tpopl\t" + R.top());
+                    if (op == OP_Binary::OP_ADD)
+                        Code.push_back("\taddl\t" + R.top() + ", " + reg);
+                    else if (op == OP_Binary::OP_SUB)
+                        Code.push_back("\tsubl\t" + R.top() + ", " + reg);
+                    else if (op == OP_Binary::OP_MUL)
+                        Code.push_back("\timull\t" + R.top() + ", " + reg);
+                    else if (op == OP_Binary::OP_DIV)
+                    {
+                        Code.push_back("\tpushl\t%edx");
+                        Code.push_back("\tpushl\t" + R.top());
+                        swap(reg, "%eax");
+                        Code.push_back("\tcltd");
+                        Code.push_back("\tidivl\t(%esp)");
+                        swap(reg, "%eax");
+                        Code.push_back("\taddl\t$4, %esp");
+                        Code.push_back("\tpopl\t%edx");
+                    }
+                    R.push(reg);
                 }
-                R.push(reg);
+                else if (l_label >= total_registers && r_label < total_registers)
+                {
+                    left->generate_code(false);
+                    if (left->get_is_bool())
+                    {
+                        std::string M = left->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    std::string reg = R.pop();
+                    right->generate_code(false);
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    if (op == OP_Binary::OP_ADD)
+                        Code.push_back("\taddl\t" + R.top() + ", " + reg);
+                    else if (op == OP_Binary::OP_SUB)
+                        Code.push_back("\tsubl\t" + R.top() + ", " + reg);
+                    else if (op == OP_Binary::OP_MUL)
+                        Code.push_back("\timull\t" + R.top() + ", " + reg);
+                    else if (op == OP_Binary::OP_DIV)
+                    {
+                        Code.push_back("\tpushl\t%edx");
+                        Code.push_back("\tpushl\t" + R.top());
+                        swap(reg, "%eax");
+                        Code.push_back("\tcltd");
+                        Code.push_back("\tidivl\t(%esp)");
+                        swap(reg, "%eax");
+                        Code.push_back("\taddl\t$4, %esp");
+                        Code.push_back("\tpopl\t%edx");
+                    }
+                    R.push(reg);
+                }
+                else if (l_label < total_registers && r_label >= total_registers)
+                {
+                    R.swap();
+                    right->generate_code(false);
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    std::string reg = R.pop();
+                    left->generate_code(false);
+                    if (left->get_is_bool())
+                    {
+                        std::string M = left->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    if (op == OP_Binary::OP_ADD)
+                        Code.push_back("\taddl\t" + reg + ", " + R.top());
+                    else if (op == OP_Binary::OP_SUB)
+                        Code.push_back("\tsubl\t" + reg + ", " + R.top());
+                    else if (op == OP_Binary::OP_MUL)
+                        Code.push_back("\timull\t" + reg + ", " + R.top());
+                    else if (op == OP_Binary::OP_DIV)
+                    {
+                        Code.push_back("\tpushl\t%edx");
+                        Code.push_back("\tpushl\t" + reg);
+                        swap(R.top(), "%eax");
+                        Code.push_back("\tcltd");
+                        Code.push_back("\tidivl\t(%esp)");
+                        swap(R.top(), "%eax");
+                        Code.push_back("\taddl\t$4, %esp");
+                        Code.push_back("\tpopl\t%edx");
+                    }
+                    R.push(reg);
+                    R.swap();
+                }
+                else
+                {
+                    left->generate_code(false);
+                    if (left->get_is_bool())
+                    {
+                        std::string M = left->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    std::string reg = R.pop();
+                    right->generate_code(false);
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    if (op == OP_Binary::OP_ADD)
+                        Code.push_back("\taddl\t" + R.top() + ", " + reg);
+                    else if (op == OP_Binary::OP_SUB)
+                        Code.push_back("\tsubl\t" + R.top() + ", " + reg);
+                    else if (op == OP_Binary::OP_MUL)
+                        Code.push_back("\timull\t" + R.top() + ", " + reg);
+                    else if (op == OP_Binary::OP_DIV)
+                    {
+                        Code.push_back("\tpushl\t%edx");
+                        Code.push_back("\tpushl\t" + R.top());
+                        swap(reg, "%eax");
+                        Code.push_back("\tcltd");
+                        Code.push_back("\tidivl\t(%esp)");
+                        swap(reg, "%eax");
+                        Code.push_back("\taddl\t$4, %esp");
+                        Code.push_back("\tpopl\t%edx");
+                    }
+                    R.push(reg);
+                }
             }
-            else if (l_label >= total_registers && r_label < total_registers)
+            else if (op == OP_Binary::OP_OR)
             {
-                left->generate_code();
-                if (left->get_is_bool())
+                std::string M = get_new_instruction_label();
+                left->generate_code(false);
+                if (!left->get_is_bool())
                 {
-                    std::string M = left->to_arithmetic();
-                    Code.push_back(M + ":");
+                    left->to_boolean();
                 }
-                std::string reg = R.pop();
-                right->generate_code();
-                if (right->get_is_bool())
+                Code.push_back(M + ":");
+                right->generate_code(false);
+                if (!right->get_is_bool())
                 {
-                    std::string M = right->to_arithmetic();
-                    Code.push_back(M + ":");
+                    right->to_boolean();
                 }
-                if (op == OP_Binary::OP_ADD)
-                    Code.push_back("\taddl\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_SUB)
-                    Code.push_back("\tsubl\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_MUL)
-                    Code.push_back("\timull\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_DIV)
+                backpatch(left->get_falselist(), M);
+                this->set_truelist(merge(left->get_truelist(), right->get_truelist()));
+                this->set_falselist(right->get_falselist());
+            }
+            else if (op == OP_Binary::OP_AND)
+            {
+                std::string M = get_new_instruction_label();
+                left->generate_code(false);
+                if (!left->get_is_bool())
                 {
-                    Code.push_back("\tpushl\t%edx");
+                    left->to_boolean();
+                }
+                Code.push_back(M + ":");
+                right->generate_code(false);
+                if (!right->get_is_bool())
+                {
+                    right->to_boolean();
+                }
+                backpatch(left->get_truelist(), M);
+                this->set_truelist(right->get_truelist());
+                this->set_falselist(merge(left->get_falselist(), right->get_falselist()));
+            }
+            else if (op == OP_Binary::OP_EQ || op == OP_Binary::OP_NEQ || op == OP_Binary::OP_LT || op == OP_Binary::OP_GT || op == OP_Binary::OP_LTE || op == OP_Binary::OP_GTE)
+            {
+                int l_label = left->get_label();
+                int r_label = right->get_label();
+
+                if (l_label >= total_registers && r_label >= total_registers)
+                {
+                    right->generate_code(false);
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
                     Code.push_back("\tpushl\t" + R.top());
-                    swap(reg, "%eax");
-                    Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t(%esp)");
-                    swap(reg, "%eax");
-                    Code.push_back("\taddl\t$4, %esp");
-                    Code.push_back("\tpopl\t%edx");
+                    left->generate_code(false);
+                    if (left->get_is_bool())
+                    {
+                        std::string M = left->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    std::string reg = R.pop();
+                    Code.push_back("\tpopl\t" + R.top());
+                    Code.push_back("\tcmpl\t" + R.top() + ", " + reg);
+                    R.push(reg);
                 }
-                R.push(reg);
-            }
-            else if (l_label < total_registers && r_label >= total_registers)
-            {
-                R.swap();
-                right->generate_code();
-                if (right->get_is_bool())
+                else if (l_label >= total_registers && r_label < total_registers)
                 {
-                    std::string M = right->to_arithmetic();
-                    Code.push_back(M + ":");
+                    left->generate_code(false);
+                    if (left->get_is_bool())
+                    {
+                        std::string M = left->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    std::string reg = R.pop();
+                    right->generate_code(false);
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\tcmpl\t" + R.top() + ", " + reg);
+                    R.push(reg);
                 }
-                std::string reg = R.pop();
-                left->generate_code();
-                if (left->get_is_bool())
+                else if (l_label < total_registers && r_label >= total_registers)
                 {
-                    std::string M = left->to_arithmetic();
-                    Code.push_back(M + ":");
+                    R.swap();
+                    right->generate_code(false);
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    std::string reg = R.pop();
+                    left->generate_code(false);
+                    if (left->get_is_bool())
+                    {
+                        std::string M = left->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\tcmpl\t" + reg + ", " + R.top());
+                    R.push(reg);
+                    R.swap();
                 }
-                if (op == OP_Binary::OP_ADD)
-                    Code.push_back("\taddl\t" + reg + ", " + R.top());
-                else if (op == OP_Binary::OP_SUB)
-                    Code.push_back("\tsubl\t" + reg + ", " + R.top());
-                else if (op == OP_Binary::OP_MUL)
-                    Code.push_back("\timull\t" + reg + ", " + R.top());
-                else if (op == OP_Binary::OP_DIV)
+                else
                 {
-                    Code.push_back("\tpushl\t%edx");
-                    Code.push_back("\tpushl\t" + reg);
-                    swap(R.top(), "%eax");
-                    Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t(%esp)");
-                    swap(R.top(), "%eax");
-                    Code.push_back("\taddl\t$4, %esp");
-                    Code.push_back("\tpopl\t%edx");
+                    left->generate_code(false);
+                    if (left->get_is_bool())
+                    {
+                        std::string M = left->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    std::string reg = R.pop();
+                    right->generate_code(false);
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\tcmpl\t" + R.top() + ", " + reg);
+                    R.push(reg);
                 }
-                R.push(reg);
-                R.swap();
+                // std::vector<int> L1 = {nextinstr()};
+                this->set_truelist(std::vector<int>{nextinstr()});
+                this->set_falselist(std::vector<int>{nextinstr() + 1});
+                if (op == OP_Binary::OP_EQ)
+                    Code.push_back("\tje\t");
+                else if (op == OP_Binary::OP_NEQ)
+                    Code.push_back("\tjne\t");
+                else if (op == OP_Binary::OP_LT)
+                    Code.push_back("\tjl\t");
+                else if (op == OP_Binary::OP_GT)
+                    Code.push_back("\tjg\t");
+                else if (op == OP_Binary::OP_LTE)
+                    Code.push_back("\tjle\t");
+                else if (op == OP_Binary::OP_GTE)
+                    Code.push_back("\tjge\t");
+                Code.push_back("\tjmp\t");
             }
             else
             {
-                left->generate_code();
-                if (left->get_is_bool())
-                {
-                    std::string M = left->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                std::string reg = R.pop();
-                right->generate_code();
-                if (right->get_is_bool())
-                {
-                    std::string M = right->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                if (op == OP_Binary::OP_ADD)
-                    Code.push_back("\taddl\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_SUB)
-                    Code.push_back("\tsubl\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_MUL)
-                    Code.push_back("\timull\t" + R.top() + ", " + reg);
-                else if (op == OP_Binary::OP_DIV)
-                {
-                    Code.push_back("\tpushl\t%edx");
-                    Code.push_back("\tpushl\t" + R.top());
-                    swap(reg, "%eax");
-                    Code.push_back("\tcltd");
-                    Code.push_back("\tidivl\t(%esp)");
-                    swap(reg, "%eax");
-                    Code.push_back("\taddl\t$4, %esp");
-                    Code.push_back("\tpopl\t%edx");
-                }
-                R.push(reg);
+                std::cout << "Error operation not handled yet" << std::endl;
             }
+            Code.push_back("");
         }
-        else if (op == OP_Binary::OP_OR)
-        {
-            std::string M = get_new_instruction_label();
-            left->generate_code();
-            if (!left->get_is_bool())
-            {
-                left->to_boolean();
-            }
-            Code.push_back(M + ":");
-            right->generate_code();
-            if (!right->get_is_bool())
-            {
-                right->to_boolean();
-            }
-            backpatch(left->get_falselist(), M);
-            this->set_truelist(merge(left->get_truelist(), right->get_truelist()));
-            this->set_falselist(right->get_falselist());
-        }
-        else if (op == OP_Binary::OP_AND)
-        {
-            std::string M = get_new_instruction_label();
-            left->generate_code();
-            if (!left->get_is_bool())
-            {
-                left->to_boolean();
-            }
-            Code.push_back(M + ":");
-            right->generate_code();
-            if (!right->get_is_bool())
-            {
-                right->to_boolean();
-            }
-            backpatch(left->get_truelist(), M);
-            this->set_truelist(right->get_truelist());
-            this->set_falselist(merge(left->get_falselist(), right->get_falselist()));
-        }
-        else if (op == OP_Binary::OP_EQ || op == OP_Binary::OP_NEQ || op == OP_Binary::OP_LT || op == OP_Binary::OP_GT || op == OP_Binary::OP_LTE || op == OP_Binary::OP_GTE)
-        {
-            int l_label = left->get_label();
-            int r_label = right->get_label();
-
-            if (l_label >= total_registers && r_label >= total_registers)
-            {
-                right->generate_code();
-                if (right->get_is_bool())
-                {
-                    std::string M = right->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                Code.push_back("\tpushl\t" + R.top());
-                left->generate_code();
-                if (left->get_is_bool())
-                {
-                    std::string M = left->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                std::string reg = R.pop();
-                Code.push_back("\tpopl\t" + R.top());
-                Code.push_back("\tcmpl\t" + R.top() + ", " + reg);
-                R.push(reg);
-            }
-            else if (l_label >= total_registers && r_label < total_registers)
-            {
-                left->generate_code();
-                if (left->get_is_bool())
-                {
-                    std::string M = left->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                std::string reg = R.pop();
-                right->generate_code();
-                if (right->get_is_bool())
-                {
-                    std::string M = right->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                Code.push_back("\tcmpl\t" + R.top() + ", " + reg);
-                R.push(reg);
-            }
-            else if (l_label < total_registers && r_label >= total_registers)
-            {
-                R.swap();
-                right->generate_code();
-                if (right->get_is_bool())
-                {
-                    std::string M = right->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                std::string reg = R.pop();
-                left->generate_code();
-                if (left->get_is_bool())
-                {
-                    std::string M = left->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                Code.push_back("\tcmpl\t" + reg + ", " + R.top());
-                R.push(reg);
-                R.swap();
-            }
-            else
-            {
-                left->generate_code();
-                if (left->get_is_bool())
-                {
-                    std::string M = left->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                std::string reg = R.pop();
-                right->generate_code();
-                if (right->get_is_bool())
-                {
-                    std::string M = right->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                Code.push_back("\tcmpl\t" + R.top() + ", " + reg);
-                R.push(reg);
-            }
-            // std::vector<int> L1 = {nextinstr()};
-            this->set_truelist(std::vector<int>{nextinstr()});
-            this->set_falselist(std::vector<int>{nextinstr() + 1});
-            if (op == OP_Binary::OP_EQ)
-                Code.push_back("\tje\t");
-            else if (op == OP_Binary::OP_NEQ)
-                Code.push_back("\tjne\t");
-            else if (op == OP_Binary::OP_LT)
-                Code.push_back("\tjl\t");
-            else if (op == OP_Binary::OP_GT)
-                Code.push_back("\tjg\t");
-            else if (op == OP_Binary::OP_LTE)
-                Code.push_back("\tjle\t");
-            else if (op == OP_Binary::OP_GTE)
-                Code.push_back("\tjge\t");
-            Code.push_back("\tjmp\t");
-        }
-        else
-        {
-            std::cout << "Error operation not handled yet" << std::endl;
-        }
-        Code.push_back("");
     }
 
     op_unary_astnode::op_unary_astnode(expression_astnode *expression, OP_Unary op)
@@ -604,37 +629,52 @@ namespace IPL
         label = expression->get_label();
         return runtime_constants;
     }
-    void op_unary_astnode::generate_code()
+    void op_unary_astnode::generate_code(bool lvalue)
     {
-        if (op == OP_Unary::OP_NOT)
+        if(lvalue)
         {
-            // expression->set_truelist(this->falselist);
-            // expression->set_falselist(this->truelist);
-            expression->generate_code();
-            this->set_truelist(expression->get_falselist());
-            this->set_falselist(expression->get_truelist());
+            if(op == OP_Unary::OP_MUL){
+                expression->generate_code(false);
+            }
+            else{
+                std::cout << "Error: cannot assign to a non-addressable value" << std::endl;
+            }
         }
-        else if (op == OP_Unary::OP_SUB)
-        {
-            expression->generate_code();
-            Code.push_back("\tnegl\t" + R.top());
-        }
-        else if (op == OP_Unary::OP_INC)
-        {
-            expression->generate_code();
-            if (expression->get_address() == nullptr)
+        else{
+            if (op == OP_Unary::OP_NOT)
             {
-                std::cout << "Error: cannot increment a non-addressable value" << std::endl;
+                expression->generate_code(false);
+                if(!expression->get_is_bool()){
+                    expression->to_boolean();
+                }
+                this->set_truelist(expression->get_falselist());
+                this->set_falselist(expression->get_truelist());
+            }
+            else if (op == OP_Unary::OP_SUB)
+            {
+                expression->generate_code(false);
+                Code.push_back("\tnegl\t" + R.top());
+            }
+            else if (op == OP_Unary::OP_INC)
+            {
+                expression->generate_code(false);
+                std::string reg = R.pop();
+                expression->generate_code(true);
+                Code.push_back("\tincl\t(" + R.top()+")");
+                R.push(reg);
+            }
+            else if (op == OP_Unary::OP_ADDR){
+                expression->generate_code(true);
+            }
+            else if (op == OP_Unary::OP_MUL){
+                expression->generate_code(true);
+                Code.push_back("\tmovl\t(" + R.top() + "), " + R.top());
             }
             else
             {
-                Code.push_back("\tincl\t" + to_string(expression->get_address()));
+                std::cout << "Error operation not handled yet" << std::endl;
             }
-        }
-        else
-        {
-            std::cout << "Error operation not handled yet" << std::endl;
-        }
+        }        
     }
 
     int_astnode::int_astnode(int value)
@@ -648,9 +688,16 @@ namespace IPL
         label = 1;
         return runtime_constants;
     }
-    void int_astnode::generate_code()
+    void int_astnode::generate_code(bool lvalue)
     {
-        Code.push_back("\tmovl\t$" + std::to_string(value) + ", " + R.top());
+        if(lvalue)
+        {
+            std::cout << "Error: cannot assign to a constant" << std::endl;
+        }
+        else
+        {
+            Code.push_back("\tmovl\t$" + std::to_string(value) + ", " + R.top());
+        }
     }
 
     string_astnode::string_astnode(std::string value)
@@ -663,11 +710,11 @@ namespace IPL
         std::vector<std::string> runtime_constants;
         std::string instruction_label = get_new_instruction_label();
         runtime_constants.push_back(instruction_label + ":\n" + "\t" + ".string" + "\t" + value);
-        label = 0;
+        label = 1;
         reference = instruction_label;
         return runtime_constants;
     }
-    void string_astnode::generate_code()
+    void string_astnode::generate_code(bool lvalue)
     {
     }
     std::string string_astnode::get_reference()
@@ -685,49 +732,121 @@ namespace IPL
     {
         std::vector<std::string> runtime_constants;
         std::vector<std::string> left_constants = left->tree_traversal();
+        if(left->get_node_type()==ASTNodeType::Int || left->get_node_type()==ASTNodeType::Identifier){
+            left->set_label(0);
+        }
         runtime_constants.insert(runtime_constants.end(), left_constants.begin(), left_constants.end());
         std::vector<std::string> right_constants = right->tree_traversal();
         runtime_constants.insert(runtime_constants.end(), right_constants.begin(), right_constants.end());
-        label = std::max(left->get_label(), right->get_label());
+        int l_label = left->get_label();
+        int r_label = right->get_label();        
+        label = l_label == r_label ? l_label + 1 : std::max(l_label, r_label);
         return runtime_constants;
     }
-    void assignE_astnode::generate_code()
+    void assignE_astnode::generate_code(bool lvalue)
     {
-        if (left->get_label() >= total_registers)
-        {
-            std::cout << "Error: left side of assignment is not a variable" << std::endl;
+        if(lvalue){
+            std::cout << "Error: assign call cannot be lvalue" << std::endl;
         }
-        else
-        {
-            right->generate_code();
-            if (right->get_is_bool())
-            {
-                std::string M = right->to_arithmetic();
-                Code.push_back(M + ":");
-            }
-            Address *addr = left->get_address();
-            if (addr != nullptr)
-            {
-                // Code.push_back("\tmovl\t" + R.top() + ", " + to_string(addr));
-                if (left->get_type()->get_base_type() == BaseType::Int)
-                {
-                    Code.push_back("\tmovl\t" + R.top() + ", " + to_string(addr));
-                }
-                else if (left->get_type()->get_base_type() == BaseType::Struct)
-                {
-                    int size = left->get_type()->get_size();
-                    for (int i = 0; i < size; i += 4)
+        else{
+            if(left->get_node_type()==ASTNodeType::Identifier){
+                right->generate_code(false);
+                if(right->get_type()->get_base_type()==BaseType::Int){
+                    if (right->get_is_bool())
                     {
-                        Code.push_back("\tmovl\t" + to_string(right->get_address()) + ", " + R.top());
-                        Code.push_back("\tmovl\t" + R.top() + ", " + to_string(addr));
-                        right->get_address()->add_offset(4);
-                        addr->add_offset(4);
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
                     }
+                    Code.push_back("\tmovl\t" + R.top() + ", " + to_string(left->get_address()));
+                }
+                else if(right->get_type()->get_base_type()==BaseType::Struct){
+                    int size = right->get_type()->get_size();
+                    std::string reg = R.pop();
+                    for(int i=0;i<size;i+=4){
+                        Code.push_back("\tmovl\t" + std::to_string(i) + "(" + reg + "), " + R.top());
+                        Code.push_back("\tmovl\t" + R.top() + ", "+ to_string(left->get_address()));
+                        left->get_address()->add_offset(4);
+                    }
+                    R.push(reg);
                 }
             }
-            else
-            {
-                std::cout << "Error: left side of assignment is not a variable" << std::endl;
+            else if(right->get_label()<left->get_label()&&right->get_label()<total_registers){
+                R.swap();
+                left->generate_code(true);
+                std::string reg = R.pop();
+                right->generate_code(false);
+                if(right->get_type()->get_base_type()==BaseType::Int){
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\tmovl\t"+R.top()+", ("+reg+")");
+                }
+                else if(right->get_type()->get_base_type()==BaseType::Struct){
+                    int size = right->get_type()->get_size();
+                    std::string reg2 = R.pop();
+                    for(int i=0;i<size;i+=4){
+                        Code.push_back("\tmovl\t" + std::to_string(i) + "(" + reg2 + "), " + R.top());
+                        Code.push_back("\tmovl\t" + R.top() + ", "+ std::to_string(i) +"(" + reg + ")");
+                    }
+                    R.push(reg2);
+                }
+                R.push(reg);
+                R.swap();
+            }
+            else if(right->get_label()>=left->get_label()&&left->get_label()<total_registers){
+                right->generate_code(false);
+                std::string reg = R.pop();
+                if(left->get_type()->get_base_type()==BaseType::Int){
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    left->generate_code(true);
+                    Code.push_back("\tmovl\t" + reg + ", (" +R.top()+")");
+                }
+                else if(left->get_type()->get_base_type()==BaseType::Struct){
+                    left->generate_code(true);
+                    int size = left->get_type()->get_size();
+                    std::string reg2 = R.pop();
+                    for(int i=0;i<size;i+=4){
+                        Code.push_back("\tmovl\t" + std::to_string(i) + "(" + reg + "), " + R.top());
+                        Code.push_back("\tmovl\t" + R.top() + ", "+ std::to_string(i) +"(" + reg2 + ")");
+                    }
+                    R.push(reg2);
+                }
+                R.push(reg);
+            }
+            else if(left->get_label()>=total_registers && right->get_label() >= total_registers){
+                right->generate_code(false);
+                if(left->get_type()->get_base_type()==BaseType::Int){
+                    if (right->get_is_bool())
+                    {
+                        std::string M = right->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\tpushl\t"+R.top());
+                    left->generate_code(true);
+                    std::string reg = R.pop();
+                    Code.push_back("\tmovl\t(%esp), " + R.top());
+                    Code.push_back("\tmovl\t" + R.top() + ", (" + reg + ")");
+                }
+                else if(left->get_type()->get_base_type()==BaseType::Struct){
+                    Code.push_back("\tpushl\t"+R.top());
+                    left->generate_code(true);
+                    int size = left->get_type()->get_size();
+                    std::string reg = R.pop();
+                    std::string reg2 = R.pop();
+                    Code.push_back("\tmovl\t(%esp), " + reg2);
+                    for(int i=0;i<size;i+=4){
+                        Code.push_back("\tmovl\t" + std::to_string(i) + "(" + reg2 + "), " + R.top());
+                        Code.push_back("\tmovl\t" + R.top() + ", "+ std::to_string(i) +"(" + reg + ")");
+                    }
+                    R.push(reg2);
+                    R.push(reg);
+                }
             }
         }
     }
@@ -753,65 +872,66 @@ namespace IPL
         label = 0;
         return runtime_constants;
     }
-    void funcall_astnode::generate_code()
+    void funcall_astnode::generate_code(bool lvalue)
     {
-        // Save registers
-        std::vector<std::string> saved_registers = R.getCallerSaved();
-        int saved_regs = 0;
-        for (auto reg = saved_registers.begin(); reg != saved_registers.end(); ++reg)
-        {
-            Code.push_back("\tpushl\t" + *reg);
-            saved_regs++;
+        if(lvalue){
+            std::cout << "Error: function call cannot be lvalue" << std::endl;
         }
-        // Make space for return value
-        int return_size = this->get_type()->get_size();
-        Code.push_back("\tsubl\t$" + std::to_string(return_size) + ", %esp");
-        for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
-        {
-            if ((*argument)->get_type()->get_base_type() == BaseType::Int)
+        else{
+            // Save registers
+            std::vector<std::string> saved_registers = R.getCallerSaved();
+            int saved_regs = 0;
+            for (auto reg = saved_registers.begin(); reg != saved_registers.end(); ++reg)
             {
-                (*argument)->generate_code();
-                if ((*argument)->get_is_bool())
-                {
-                    std::string M = (*argument)->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                Code.push_back("\tpushl\t" + R.top());
+                Code.push_back("\tpushl\t" + *reg);
+                saved_regs++;
             }
-            else if ((*argument)->get_type()->get_base_type() == BaseType::Struct)
+            // Make space for return value
+            int return_size = this->get_type()->get_size();
+            Code.push_back("\tsubl\t$" + std::to_string(return_size) + ", %esp");
+            // Evaluate arguments in reverese and push into stack
+            for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
             {
-                (*argument)->generate_code();
-                int size = (*argument)->get_type()->get_size();
-                (*argument)->get_address()->add_offset(size - 4);
-                for (int i = 0; i < size; i += 4)
+                (*argument)->generate_code(false);
+                if ((*argument)->get_type()->get_base_type() == BaseType::Int)
                 {
-                    Code.push_back("\tmovl\t" + to_string((*argument)->get_address()) + ", " + R.top());
+                    if ((*argument)->get_is_bool())
+                    {
+                        std::string M = (*argument)->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
                     Code.push_back("\tpushl\t" + R.top());
-                    (*argument)->get_address()->add_offset(-4);
+                }
+                else if ((*argument)->get_type()->get_base_type() == BaseType::Struct)
+                {
+                    int size = (*argument)->get_type()->get_size();
+                    std::string reg = R.pop();
+                    Code.push_back("\tleal\t" + std::to_string(size-4) + "(" + reg + "), " + reg);
+                    for (int i = 0; i < size; i += 4)
+                    {
+                        Code.push_back("\tmovl\t" +  std::to_string(-i) + "(" + reg + "), " + R.top());
+                        Code.push_back("\tpushl\t" + R.top());
+                    }
+                    R.push(reg);
                 }
             }
-        }
-        Code.push_back("\tcall\t" + name);
-        Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
-        // Restore return value
-        if (this->get_type()->get_base_type() == BaseType::Int)
-        {
-            Code.push_back("\tpopl\t" + R.top());
-        }
-        else if (this->get_type()->get_base_type() == BaseType::Struct)
-        {
-            // int size = this->get_type()->get_size();
-            // for(int i=0;i<size;i+=4){
-            //     Code.push_back("\tpopl\t" + R.top());
-            //     this->return_address->add_offset(4);
-            // }
-            Code.push_back("\taddl\t$" + std::to_string(return_size) + ", %esp");
-            this->address = new Address(-(saved_regs * 4 + return_size), "esp");
-        }
-        // Restore registers
-        for (auto reg = saved_registers.rbegin(); reg != saved_registers.rend(); ++reg)
-        {
-            Code.push_back("\tpopl\t" + *reg);
+            Code.push_back("\tcall\t" + name);
+            Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
+            // Restore return value
+            if (this->get_type()->get_base_type() == BaseType::Int)
+            {
+                Code.push_back("\tpopl\t" + R.top());
+            }
+            else if (this->get_type()->get_base_type() == BaseType::Struct)
+            {
+                Code.push_back("\tleal\t(%esp), "+R.top());
+                Code.push_back("\taddl\t$" + std::to_string(return_size) + ", %esp");
+            }
+            // Restore registers
+            for (auto reg = saved_registers.rbegin(); reg != saved_registers.rend(); ++reg)
+            {
+                Code.push_back("\tpopl\t" + *reg);
+            }
         }
     }
 
@@ -834,21 +954,21 @@ namespace IPL
         }
         return runtime_constants;
     }
-    void seq_astnode::generate_code()
+    void seq_astnode::generate_code(bool lvalue)
     {
         for (auto statement : statements)
         {
-            if (statement->get_type() == ASTNodeType::If || statement->get_type() == ASTNodeType::While || statement->get_type() == ASTNodeType::For)
+            if (statement->get_node_type() == ASTNodeType::If || statement->get_node_type() == ASTNodeType::While || statement->get_node_type() == ASTNodeType::For)
             {
                 // statement->set_nextlist(get_new_instruction_label());
-                statement->generate_code();
+                statement->generate_code(false);
                 std::string M = get_new_instruction_label();
                 backpatch(statement->get_nextlist(), M);
                 Code.push_back(M + ":");
             }
             else
             {
-                statement->generate_code();
+                statement->generate_code(false);
             }
             Code.push_back("");
         }
@@ -864,7 +984,7 @@ namespace IPL
         label = 0;
         return runtime_constants;
     }
-    void empty_astnode::generate_code()
+    void empty_astnode::generate_code(bool lvalue)
     {
     }
 
@@ -881,9 +1001,12 @@ namespace IPL
         label = assignment_expression->get_label();
         return runtime_constants;
     }
-    void assignS_astnode::generate_code()
+    void assignS_astnode::generate_code(bool lvalue)
     {
-        assignment_expression->generate_code();
+        if(lvalue)
+            std::cout<<"Error: Lvalue of statement is true\n";
+        else
+            assignment_expression->generate_code(false);
     }
 
     if_astnode::if_astnode(expression_astnode *condition, statement_astnode *if_body, statement_astnode *else_body)
@@ -907,24 +1030,28 @@ namespace IPL
         this->label = std::max(label, else_body->get_label());
         return runtime_constants;
     }
-    void if_astnode::generate_code()
+    void if_astnode::generate_code(bool lvalue)
     {
-        std::string M1 = get_new_instruction_label();
-        std::string M2 = get_new_instruction_label();
-        condition->generate_code();
-        if (!condition->get_is_bool())
-        {
-            condition->to_boolean();
+        if(lvalue)
+            std::cout<<"Error: Lvalue of statement is true\n";
+        else{
+            std::string M1 = get_new_instruction_label();
+            std::string M2 = get_new_instruction_label();
+            condition->generate_code(false);
+            if (!condition->get_is_bool())
+            {
+                condition->to_boolean();
+            }
+            Code.push_back(M1 + ":");
+            if_body->generate_code(false);
+            std::vector<int> temp = merge(if_body->get_nextlist(), std::vector<int>{nextinstr()});
+            Code.push_back("\tjmp\t");
+            Code.push_back(M2 + ":");
+            else_body->generate_code(false);
+            backpatch(condition->get_truelist(), M1);
+            backpatch(condition->get_falselist(), M2);
+            this->set_nextlist(merge(temp, else_body->get_nextlist()));
         }
-        Code.push_back(M1 + ":");
-        if_body->generate_code();
-        std::vector<int> temp = merge(if_body->get_nextlist(), std::vector<int>{nextinstr()});
-        Code.push_back("\tjmp\t");
-        Code.push_back(M2 + ":");
-        else_body->generate_code();
-        backpatch(condition->get_truelist(), M1);
-        backpatch(condition->get_falselist(), M2);
-        this->set_nextlist(merge(temp, else_body->get_nextlist()));
     }
 
     while_astnode::while_astnode(expression_astnode *condition, statement_astnode *body)
@@ -944,22 +1071,26 @@ namespace IPL
         runtime_constants.insert(runtime_constants.end(), body_constants.begin(), body_constants.end());
         return runtime_constants;
     }
-    void while_astnode::generate_code()
+    void while_astnode::generate_code(bool lvalue)
     {
-        std::string M1 = get_new_instruction_label();
-        std::string M2 = get_new_instruction_label();
-        Code.push_back(M1 + ":");
-        condition->generate_code();
-        if (!condition->get_is_bool())
-        {
-            condition->to_boolean();
+        if(lvalue)
+            std::cout<<"Error: Lvalue of statement is true\n";
+        else{
+            std::string M1 = get_new_instruction_label();
+            std::string M2 = get_new_instruction_label();
+            Code.push_back(M1 + ":");
+            condition->generate_code(false);
+            if (!condition->get_is_bool())
+            {
+                condition->to_boolean();
+            }
+            Code.push_back(M2 + ":");
+            body->generate_code(false);
+            Code.push_back("\tjmp\t\t" + M1);
+            backpatch(condition->get_truelist(), M2);
+            backpatch(body->get_nextlist(), M1);
+            this->set_nextlist(condition->get_falselist());
         }
-        Code.push_back(M2 + ":");
-        body->generate_code();
-        Code.push_back("\tjmp\t\t" + M1);
-        backpatch(condition->get_truelist(), M2);
-        backpatch(body->get_nextlist(), M1);
-        this->set_nextlist(condition->get_falselist());
     }
 
     for_astnode::for_astnode(assignE_astnode *init, expression_astnode *condition, assignE_astnode *step, statement_astnode *body)
@@ -987,26 +1118,30 @@ namespace IPL
         runtime_constants.insert(runtime_constants.end(), body_constants.begin(), body_constants.end());
         return runtime_constants;
     }
-    void for_astnode::generate_code()
+    void for_astnode::generate_code(bool lvalue)
     {
-        std::string M1 = get_new_instruction_label();
-        std::string M2 = get_new_instruction_label();
-        std::string M3 = get_new_instruction_label();
-        init->generate_code();
-        Code.push_back(M1 + ":");
-        condition->generate_code();
-        if (!condition->get_is_bool())
-        {
-            condition->to_boolean();
+        if(lvalue)
+            std::cout<<"Error: Lvalue of statement is true\n";
+        else{
+            std::string M1 = get_new_instruction_label();
+            std::string M2 = get_new_instruction_label();
+            std::string M3 = get_new_instruction_label();
+            init->generate_code(false);
+            Code.push_back(M1 + ":");
+            condition->generate_code(false);
+            if (!condition->get_is_bool())
+            {
+                condition->to_boolean();
+            }
+            Code.push_back(M2 + ":");
+            body->generate_code(false);
+            Code.push_back(M3 + ":");
+            step->generate_code(false);
+            Code.push_back("\tjmp\t\t" + M1);
+            backpatch(condition->get_truelist(), M2);
+            backpatch(body->get_nextlist(), M3);
+            this->set_nextlist(condition->get_falselist());
         }
-        Code.push_back(M2 + ":");
-        body->generate_code();
-        Code.push_back(M3 + ":");
-        step->generate_code();
-        Code.push_back("\tjmp\t\t" + M1);
-        backpatch(condition->get_truelist(), M2);
-        backpatch(body->get_nextlist(), M3);
-        this->set_nextlist(condition->get_falselist());
     }
 
     return_astnode::return_astnode(expression_astnode *expression, int return_address_offset)
@@ -1026,30 +1161,32 @@ namespace IPL
         }
         return runtime_constants;
     }
-    void return_astnode::generate_code()
+    void return_astnode::generate_code(bool lvalue)
     {
-        if (expression != NULL)
-        {
-            expression->generate_code();
-            if (expression->get_is_bool())
-            {
-                std::string M = expression->to_arithmetic();
-                Code.push_back(M + ":");
-            }
+        if(lvalue)
+            std::cout<<"Error: Lvalue of statement is true\n";
+        else{
+            expression->generate_code(false);
             if (expression->get_type()->get_base_type() == BaseType::Int)
             {
+                if(expression->get_is_bool())
+                {
+                    std::string M = expression->to_arithmetic();
+                    Code.push_back(M + ":");
+                }
                 Code.push_back("\tmovl\t" + R.top() + ", " + to_string(this->return_address));
             }
             else if (expression->get_type()->get_base_type() == BaseType::Struct)
             {
                 int size = expression->get_type()->get_size();
+                std::string reg = R.pop();
                 for (int i = 0; i < size; i += 4)
                 {
-                    Code.push_back("\tmovl\t" + to_string(expression->get_address()) + ", " + R.top());
+                    Code.push_back("\tmovl\t" + std::to_string(i) + "(" + reg + "), " + R.top());
                     Code.push_back("\tmovl\t" + R.top() + ", " + to_string(this->return_address));
-                    expression->get_address()->add_offset(4);
                     this->return_address->add_offset(4);
                 }
+                R.push(reg);
             }
         }
     }
@@ -1076,39 +1213,57 @@ namespace IPL
         }
         return runtime_constants;
     }
-    void proccall_astnode::generate_code()
+    void proccall_astnode::generate_code(bool lvalue)
     {
-        // Make space for return value
-        Code.push_back("\tsubl\t$" + std::to_string(return_size) + ", %esp");
-        // Evaluate arguments in reverese and push into stack
-        for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
-        {
-            if ((*argument)->get_type()->get_base_type() == BaseType::Int)
+        if(lvalue)
+            std::cout<<"Error: Lvalue of statement is true\n";
+        else{
+            // Save registers
+            std::vector<std::string> saved_registers = R.getCallerSaved();
+            int saved_regs = 0;
+            for (auto reg = saved_registers.begin(); reg != saved_registers.end(); ++reg)
             {
-                (*argument)->generate_code();
-                if ((*argument)->get_is_bool())
-                {
-                    std::string M = (*argument)->to_arithmetic();
-                    Code.push_back(M + ":");
-                }
-                Code.push_back("\tpushl\t" + R.top());
+                Code.push_back("\tpushl\t" + *reg);
+                saved_regs++;
             }
-            else if ((*argument)->get_type()->get_base_type() == BaseType::Struct)
+            // Make space for return value
+            Code.push_back("\tsubl\t$" + std::to_string(return_size) + ", %esp");
+            // Evaluate arguments in reverese and push into stack
+            for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
             {
-                (*argument)->generate_code();
-                int size = (*argument)->get_type()->get_size();
-                (*argument)->get_address()->add_offset(size - 4);
-                for (int i = 0; i < size; i += 4)
+                (*argument)->generate_code(false);
+                if ((*argument)->get_type()->get_base_type() == BaseType::Int)
                 {
-                    Code.push_back("\tmovl\t" + to_string((*argument)->get_address()) + ", " + R.top());
+                    if ((*argument)->get_is_bool())
+                    {
+                        std::string M = (*argument)->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
                     Code.push_back("\tpushl\t" + R.top());
-                    (*argument)->get_address()->add_offset(-4);
                 }
+                else if ((*argument)->get_type()->get_base_type() == BaseType::Struct)
+                {
+                    int size = (*argument)->get_type()->get_size();
+                    std::string reg = R.pop();
+                    Code.push_back("\tleal\t" + std::to_string(size-4) + "(" + reg + "), " + reg);
+                    for (int i = 0; i < size; i += 4)
+                    {
+                        Code.push_back("\tmovl\t" +  std::to_string(-i) + "(" + reg + "), " + R.top());
+                        Code.push_back("\tpushl\t" + R.top());
+                    }
+                    R.push(reg);
+                }
+            }
+            Code.push_back("\tcall\t" + name);
+            Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
+            // Restore return value
+            Code.push_back("\taddl\t$" + std::to_string(return_size) + ", %esp");
+            // Restore registers
+            for (auto reg = saved_registers.rbegin(); reg != saved_registers.rend(); ++reg)
+            {
+                Code.push_back("\tpopl\t" + *reg);
             }
         }
-        Code.push_back("\tcall\t" + name);
-        Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
-        Code.push_back("\taddl\t$" + std::to_string(return_size) + ", %esp");
     }
 
     printf_astnode::printf_astnode(string_astnode *format, int local_param_size)
@@ -1134,21 +1289,41 @@ namespace IPL
         }
         return runtime_constants;
     }
-    void printf_astnode::generate_code()
+    void printf_astnode::generate_code(bool lvalue)
     {
-        for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
-        {
-            (*argument)->generate_code();
-            if ((*argument)->get_is_bool())
+        if(lvalue)
+            std::cout<<"Error: Lvalue of statement is true\n";
+        else{
+            // Evaluate arguments in reverese and push into stack
+            for (auto argument = arguments.rbegin(); argument != arguments.rend(); ++argument)
             {
-                std::string M = (*argument)->to_arithmetic();
-                Code.push_back(M + ":");
+                (*argument)->generate_code(false);
+                if ((*argument)->get_type()->get_base_type() == BaseType::Int)
+                {
+                    if ((*argument)->get_is_bool())
+                    {
+                        std::string M = (*argument)->to_arithmetic();
+                        Code.push_back(M + ":");
+                    }
+                    Code.push_back("\tpushl\t" + R.top());
+                }
+                else if ((*argument)->get_type()->get_base_type() == BaseType::Struct)
+                {
+                    int size = (*argument)->get_type()->get_size();
+                    std::string reg = R.pop();
+                    Code.push_back("\tleal\t" + std::to_string(size-4) + "(" + reg + "), " + reg);
+                    for (int i = 0; i < size; i += 4)
+                    {
+                        Code.push_back("\tmovl\t" +  std::to_string(-i) + "(" + reg + "), " + R.top());
+                        Code.push_back("\tpushl\t" + R.top());
+                    }
+                    R.push(reg);
+                }
             }
-            Code.push_back("\tpushl\t" + R.top());
+            Code.push_back("\tpushl\t$" + format->get_reference());
+            Code.push_back("\tcall\tprintf");
+            Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
         }
-        Code.push_back("\tpushl\t$" + format->get_reference());
-        Code.push_back("\tcall\tprintf");
-        Code.push_back("\taddl\t$" + std::to_string(local_param_size) + ", %esp");
     }
 
     compound_statement::compound_statement(seq_astnode *statements, int local_var_size)
@@ -1190,7 +1365,7 @@ namespace IPL
                 Code.push_back("\tpushl\t" + reg);
             }
             // Generate Code for statements
-            statements->generate_code();
+            statements->generate_code(false);
             // Restore Registers
             for (auto reg = registers.rbegin(); reg != registers.rend(); ++reg)
             {
