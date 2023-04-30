@@ -683,9 +683,9 @@ postfix_expression
    // TODO: check if types are correct
    // TODO: check if identifier is declared and offset is correct
    if($1->get_type()->get_base_type() == BaseType::Pointer && $1->get_type()->get_sub_type()->get_base_type() == BaseType::Struct) {
-      GST_Entry* entry = gst->getEntry($1->get_type()->get_name());
+      GST_Entry* entry = gst->getEntry($1->get_type()->get_sub_type()->get_name());
       if(entry == nullptr) {
-         error(@1, "The struct \"" + $1->get_type()->get_name() + "\" is not declared");
+         error(@1, "The struct \"" + $1->get_type()->get_sub_type()->get_name() + "\" is not declared");
       }
       LST_Entry* member = entry->getLST()->getEntry($3);
       if(member == nullptr) {
