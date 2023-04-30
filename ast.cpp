@@ -534,7 +534,9 @@ namespace IPL
         else
         {
             if (op == OP_Binary::OP_ADD || op == OP_Binary::OP_SUB || op == OP_Binary::OP_MUL)
-            {
+            {   
+                // Code.push_back("Exp1 type"+to_string(left->get_type()));
+                // Code.push_back("Exp2 type"+to_string(right->get_type()));
                 int l_label = left->get_label();
                 int r_label = right->get_label();
 
@@ -583,7 +585,7 @@ namespace IPL
                         else if (left->get_type()->get_base_type() == BaseType::Pointer && right->get_type()->get_base_type() == BaseType::Pointer)
                         {
                             Code.push_back("\tsubl\t" + R.top() + ", " + reg);
-                            // Code.push_back("\tmovl\t$" + std::to_string(left->get_type()->get_size()) + ", " + R.top());
+                            Code.push_back("\tsarl\t$2, " + reg);
                             // Code.push_back("\tcltd");
                             // Code.push_back("\tidivl\t" + R.top());
                             // Code.push_back("\tmovl\t%eax, " + reg);
@@ -646,10 +648,7 @@ namespace IPL
                         else if (left->get_type()->get_base_type() == BaseType::Pointer && right->get_type()->get_base_type() == BaseType::Pointer)
                         {
                             Code.push_back("\tsubl\t" + R.top() + ", " + reg);
-                            // Code.push_back("\tmovl\t$" + std::to_string(left->get_type()->get_size()) + ", " + R.top());
-                            // Code.push_back("\tcltd");
-                            // Code.push_back("\tidivl\t" + R.top());
-                            // Code.push_back("\tmovl\t%eax, " + reg);
+                            Code.push_back("\tsarl\t$2, " + reg);
                         }
                     }
                     else if (op == OP_Binary::OP_MUL)
@@ -710,10 +709,7 @@ namespace IPL
                         else if (left->get_type()->get_base_type() == BaseType::Pointer && right->get_type()->get_base_type() == BaseType::Pointer)
                         {
                             Code.push_back("\tsubl\t" + reg + ", " + R.top());
-                            // Code.push_back("\tmovl\t$" + std::to_string(left->get_type()->get_size()) + ", " + R.top());
-                            // Code.push_back("\tcltd");
-                            // Code.push_back("\tidivl\t" + R.top());
-                            // Code.push_back("\tmovl\t%eax, " + reg);
+                            Code.push_back("\tsarl\t$2, " + reg);
                         }
                     }
                     else if (op == OP_Binary::OP_MUL)
@@ -774,6 +770,7 @@ namespace IPL
                         else if (left->get_type()->get_base_type() == BaseType::Pointer && right->get_type()->get_base_type() == BaseType::Pointer)
                         {
                             Code.push_back("\tsubl\t" + R.top() + ", " + reg);
+                            Code.push_back("\tsarl\t$2, " + reg);
                             // Code.push_back("\tmovl\t$" + std::to_string(left->get_type()->get_size()) + ", " + R.top());
                             // Code.push_back("\tcltd");
                             // Code.push_back("\tidivl\t" + R.top());
