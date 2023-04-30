@@ -153,3 +153,30 @@ Unary expression node
             R.push(r)
 
     
+
+
+
+Expression node is of type op_binary, assignE, array --> 2 expressions 
+
+if expression1.label < expression2.label and expression1 < N:
+    swap(R)
+    gencode(expression2)
+    r = R.pop
+    gencode(expression1)
+    R.top = R.top OP r
+    R.push(r)
+    swap(R)
+
+if expression2.label <= expression1.label and expression2 < N:
+    gencode(expression1)
+    r = R.pop
+    gencode(expression2)
+    r = r OP R.top
+    R.push(r)
+
+if expression1.label >= N and expression2.label >= N:
+    gencode(expression2)
+    push into mem R.top
+    gencode(expression1)
+    R.top = R.top OP (esp)
+    esp += 4

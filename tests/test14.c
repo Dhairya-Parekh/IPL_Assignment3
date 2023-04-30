@@ -22,6 +22,12 @@ void g(struct B b){
 int main(){
     struct A a;
     struct B b;
+    a.x = 10;
+    a.y = 20;
+    b.a = a;
+    b.a = f(f(a));
+    printf("%d\n", b.a.x);
+    printf("%d\n", b.a.y);
     g(b);
     return 0;
 }

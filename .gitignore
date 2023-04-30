@@ -3,3 +3,8 @@ asm/
 debug/
 output/
 stdout/
+tests/
+temp.o
+temp.s
+gcc.o
+gcc.s

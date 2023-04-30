@@ -3,7 +3,7 @@ int main(){
     int y;
     x = 0;
     y = 0;
-    y = x < y;
+    y = ! x < y;
     if((x<y) < (x>y)){
         printf("x%d\n",x);
     }
